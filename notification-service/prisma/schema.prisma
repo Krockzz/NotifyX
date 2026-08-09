@@ -1,0 +1,226 @@
+// ================================
+// ENUMS
+// ================================
+
+enum ChannelType {
+  EMAIL
+  SMS
+  PUSH
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ================================
+// DATABASE
+// ================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// PRISMA CLIENT
+// ================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+// ================================
+// USER
+// ================================
+
+model User {
+  id             String   @id @default(uuid())
+  full_name      String   @db.VarChar(50)
+  email          String   @unique @db.VarChar(255)
+  hashedPassword String   @db.VarChar(255)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  applications Application[]
+}
+
+// ================================
+// APPLICATION
+// ================================
+
+model Application {
+  id         String   @id @default(uuid())
+  userId     String
+  appName    String   @db.VarChar(255)
+  apiKeyHash String   @unique @db.VarChar(255)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  events       Event[]
+  eventTypes   EventType[]
+  auditEntries AuditLedger[]
+}
+
+// ================================
+// EVENT TYPE
+// ================================
+
+model EventType {
+  id          String   @id @default(uuid())
+  appId       String
+  eventCode   String   @db.VarChar(50)
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  application Application @relation(fields: [appId], references: [id], onDelete: Restrict)
+
+  events    Event[]
+  channels  EventTypeChannel[]
+  templates Template[]
+
+  @@unique([appId, id])
+  @@unique([appId, eventCode])
+}
+
+// ================================
+// EVENT
+// ================================
+
+model Event {
+  id          String   @id @default(uuid())
+  appId       String
+  eventTypeId String
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  application Application @relation(fields: [appId], references: [id], onDelete: Restrict)
+
+  eventType EventType @relation(fields: [appId, eventTypeId], references: [appId, id], onDelete: Restrict)
+
+  notifications Notification[]
+  auditEntries  AuditLedger[]
+
+  @@index([appId, createdAt])
+  @@index([eventTypeId, createdAt])
+}
+
+model EventTypeChannel {
+  id          String      @id @default(uuid())
+  eventTypeId String
+  channelType ChannelType
+  isEnabled   Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventTypeId, channelType])
+}
+
+// ================================
+// TEMPLATE
+// ================================
+
+model Template {
+  id          String      @id @default(uuid())
+  eventTypeId String
+  channelType ChannelType
+  subject     String?     @db.VarChar(255)
+  bodyContent String      @db.Text
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  eventType EventType @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+
+  notifications Notification[]
+
+  @@unique([eventTypeId, channelType])
+}
+
+// ================================
+// NOTIFICATION
+// ================================
+
+model Notification {
+  id              String             @id @default(uuid())
+  eventId         String
+  templateId      String
+  channelType     ChannelType
+  recipientTarget String             @db.VarChar(255)
+  status          NotificationStatus @default(PENDING)
+  scheduledAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  deliveryAttempts DeliveryAttempt[]
+  auditEntries     AuditLedger[]
+
+  @@index([status, createdAt])
+  @@index([eventId])
+}
+
+// ================================
+// DELIVERY ATTEMPT
+// ================================
+
+model DeliveryAttempt {
+  id                String         @id @default(uuid())
+  notificationId    String
+  attemptNumber     Int
+  provider          String         @db.VarChar(100)
+  status            DeliveryStatus
+  providerMessageId String?        @db.VarChar(255)
+  errorReason       String?        @db.Text
+  createdAt         DateTime       @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, attemptNumber])
+}
+
+// ================================
+// AUDIT LEDGER
+// ================================
+
+model AuditLedger {
+  id             String   @id @default(uuid())
+  appId          String
+  eventId        String?
+  notificationId String?
+  action         String   @db.VarChar(100)
+  status         String   @db.VarChar(50)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  application Application @relation(fields: [appId], references: [id], onDelete: Restrict)
+
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  notification Notification? @relation(fields: [notificationId], references: [id], onDelete: Restrict)
+
+  @@index([appId, createdAt])
+  @@index([eventId, createdAt])
+  @@index([notificationId, createdAt])
+}
