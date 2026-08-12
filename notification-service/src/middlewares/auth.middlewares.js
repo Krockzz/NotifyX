@@ -1,9 +1,8 @@
-import { ApiError } from "../utils/ApiError";
-import asyncHandler from "../utils/asyncHandler.js"
+import { ApiError } from "../utils/ApiError.js";
+import {asyncHandler} from "../utils/asyncHandler.js"
 import jwt from "jsonwebtoken"
-
 import prisma from "../DB/index.js"
-import { ApiResponse } from "../utils/ApiResponse";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 export const verifyJwt = asyncHandler(async (req , res , next) => {
 

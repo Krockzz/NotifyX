@@ -47,12 +47,13 @@ generator client {
 // ================================
 
 model User {
-  id             String   @id @default(uuid())
-  full_name      String   @db.VarChar(50)
-  email          String   @unique @db.VarChar(255)
-  hashedPassword String   @db.VarChar(255)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id            String   @id @default(uuid())
+  UserName      String   @db.VarChar(50)
+  email         String   @unique @db.VarChar(255)
+  password      String   @db.VarChar(255)
+  refreshTokens String?  @db.VarChar(200)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   applications Application[]
 }

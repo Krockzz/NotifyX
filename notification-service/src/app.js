@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import router1 from "../src/routers/User.router.js"
 
 const app = express() // and instance of express server
 
@@ -17,8 +18,6 @@ app.use(express.urlencoded({
 
 app.use(cookieParser());
 
-app.get('/' , (req , res) => {
-    res.send("Server running successfully")
-})
+app.use("/api/v1/users" , router1)
 
 export {app}
