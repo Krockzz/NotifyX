@@ -187,9 +187,105 @@ const getApplicationById = asyncHandler(async (req, res) => {
         );
 });
 
+const updateApplication = asyncHandler(async (req, res) => {
+
+    const { appId } = req.params;
+    const { appName, isActive } = req.body;
+
+    if (!appId) {
+        throw new ApiError(
+            400,
+            "Application ID is required"
+        );
+    }
+r
+    const userId = req.user?.id;
+
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "User needs to be logged in"
+        );
+    }
+
+    if (appName === undefined && isActive === undefined) {
+        throw new ApiError(
+            400,
+            "Nothing to update"
+        );
+    }
+
+    if (appName !== undefined) {
+
+        if (typeof appName !== "string" || !appName.trim()) {
+            throw new ApiError(
+                400,
+                "Application name cannot be empty"
+            );
+        }
+    }
+
+    if (isActive !== undefined && typeof isActive !== "boolean") {
+        throw new ApiError(
+            400,
+            "isActive must be a boolean"
+        );
+    }
+
+
+    const existingApplication = await prisma.application.findFirst({
+        where: {
+            id: appId,
+            userId: userId
+        }
+    });
+
+    if (!existingApplication) {
+        throw new ApiError(
+            404,
+            "Application not found"
+        );
+    }
+
+    const updateData = {};
+
+    if (appName !== undefined) {
+        updateData.appName = appName.trim();
+    }
+
+    if (isActive !== undefined) {
+        updateData.isActive = isActive;
+    }
+
+    const updatedApplication = await prisma.application.update({
+        where: {
+            id: appId
+        },
+        data: updateData,
+        select: {
+            id: true,
+            appName: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true
+        }
+    });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                updatedApplication,
+                "Application updated successfully"
+            )
+        );
+});
+
 
 export {
     createApplication,
     getApplications,
-    getApplicationById
+    getApplicationById,
+    updateApplication
 }
