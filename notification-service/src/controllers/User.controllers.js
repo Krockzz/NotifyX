@@ -153,7 +153,7 @@ const LoginUser = asyncHandler(async (req , res) => {
 
     const isPasswordValid = isPasswordCorrect(password , user.password)
 
-    if(!isPasswordCorrect){
+    if(!isPasswordValid){
         throw new ApiError(
 
             400 , 

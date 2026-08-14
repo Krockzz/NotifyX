@@ -1,5 +1,25 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+
+const GenerateApiKey = () => {
+    const randomKey = crypto.randomBytes(32).toString("hex");
+    console.log("Key Generated", randomKey)
+
+    return `nss_live_${randomKey}`;
+};
+
+const HashApiKey = (apiKey) => {
+
+    const hash =  crypto
+        .createHash("sha256")
+        .update(apiKey)
+        .digest("hex");
+
+    console.log("Hash generated" ,hash)
+
+    return hash 
+};
 
 const isPasswordCorrect = async function (password, hashedPassword) {
     return bcrypt.compare(password, hashedPassword);
@@ -43,5 +63,7 @@ export {
     isPasswordCorrect,
     hashPassword,
     GenerateAccessToken,
-    GenerateRefreshToken
+    GenerateRefreshToken,
+    GenerateApiKey,
+    HashApiKey
 };
