@@ -135,8 +135,61 @@ const getApplications = asyncHandler(async (req, res) => {
       ))
 })
 
+const getApplicationById = asyncHandler(async (req, res) => {
+
+    const { appId } = req.params;
+
+    if (!appId) {
+        throw new ApiError(
+            400,
+            "Application ID is required"
+        );
+    }
+
+    const userId = req.user?.id;
+
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "User needs to be logged in"
+        );
+    }
+
+    const app = await prisma.application.findFirst({
+        where: {
+            id: appId,
+            userId: userId
+        },
+        select: {
+            id: true,
+            appName: true,
+            isActive: true,
+            created_at: true,
+            updated_at: true
+        }
+    });
+
+    if (!app) {
+        throw new ApiError(
+            404,
+            "Application not found"
+        );
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                app,
+                "Application fetched successfully"
+            )
+        );
+});
+
 
 export {
     createApplication,
-    getApplications
+    getApplications,
+    getApplicationById
 }
