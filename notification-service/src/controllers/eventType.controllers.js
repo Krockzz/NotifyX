@@ -204,9 +204,205 @@ const getEventTypeById = asyncHandler(async (req, res) => {
         );
 });
 
+const updateEventType = asyncHandler(async (req, res) => {
+
+    const { eventTypeId } = req.params;
+    const { eventCode, description, isActive } = req.body;
+
+    if (!eventTypeId) {
+        throw new ApiError(
+            400,
+            "Event type ID is required"
+        );
+    }
+
+    const userId = req.user?.id;
+
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "User needs to be logged in"
+        );
+    }
+
+    if (
+        eventCode === undefined &&
+        description === undefined &&
+        isActive === undefined
+    ) {
+        throw new ApiError(
+            400,
+            "Nothing to update"
+        );
+    }
+
+    if (
+        eventCode !== undefined &&
+        (typeof eventCode !== "string" || !eventCode.trim())
+    ) {
+        throw new ApiError(
+            400,
+            "Event code cannot be empty"
+        );
+    }
+
+    if (
+        isActive !== undefined &&
+        typeof isActive !== "boolean"
+    ) {
+        throw new ApiError(
+            400,
+            "isActive must be a boolean"
+        );
+    }
+
+    const existingEventType = await prisma.eventType.findFirst({
+        where: {
+            id: eventTypeId,
+            application: {
+                userId: userId
+            }
+        }
+    });
+
+    if (!existingEventType) {
+        throw new ApiError(
+            404,
+            "Event type not found"
+        );
+    }
+
+    if (eventCode !== undefined) {
+
+        const duplicateEventType = await prisma.eventType.findFirst({
+            where: {
+                appId: existingEventType.appId,
+                eventCode: eventCode.trim(),
+                NOT: {
+                    id: eventTypeId
+                }
+            }
+        });
+
+        if (duplicateEventType) {
+            throw new ApiError(
+                409,
+                "Event code already exists in this application"
+            );
+        }
+    }
+
+    const updateData = {};
+
+    if (eventCode !== undefined) {
+        updateData.eventCode = eventCode.trim();
+    }
+
+    if (description !== undefined) {
+        updateData.description =
+            description?.trim() || null;
+    }
+
+    if (isActive !== undefined) {
+        updateData.isActive = isActive;
+    }
+
+    const updatedEventType = await prisma.eventType.update({
+        where: {
+            id: eventTypeId
+        },
+        data: updateData,
+        select: {
+            id: true,
+            appId: true,
+            eventCode: true,
+            description: true,
+            isActive: true,
+            created_at: true,
+            updated_at: true
+        }
+    });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                updatedEventType,
+                "Event type updated successfully"
+            )
+        );
+});
+
+const deleteEventType = asyncHandler(async (req, res) => {
+
+    const { eventTypeId } = req.params;
+
+    if (!eventTypeId) {
+        throw new ApiError(
+            400,
+            "Event type ID is required"
+        );
+    }
+
+    const userId = req.user?.id;
+
+    if (!userId) {
+        throw new ApiError(
+            401,
+            "User needs to be logged in"
+        );
+    }
+
+    const eventType = await prisma.eventType.findFirst({
+        where: {
+            id: eventTypeId,
+            application: {
+                userId: userId
+            }
+        }
+    });
+
+    if (!eventType) {
+        throw new ApiError(
+            404,
+            "Event type not found"
+        );
+    }
+
+    const deletedEventType = await prisma.eventType.update({
+        where: {
+            id: eventTypeId
+        },
+        data: {
+            isActive: false
+        },
+        select: {
+            id: true,
+            appId: true,
+            eventCode: true,
+            description: true,
+            isActive: true,
+            updated_at: true
+        }
+    });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                deletedEventType,
+                "Event type deleted successfully"
+            )
+        );
+});
+
 
 export {
     createEventType,
     getEventTypes,
-    getEventTypeById
+    getEventTypeById,
+    updateEventType,
+    deleteEventType
 };
