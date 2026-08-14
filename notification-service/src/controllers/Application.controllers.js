@@ -198,7 +198,7 @@ const updateApplication = asyncHandler(async (req, res) => {
             "Application ID is required"
         );
     }
-r
+
     const userId = req.user?.id;
 
     if (!userId) {
@@ -266,8 +266,8 @@ r
             id: true,
             appName: true,
             isActive: true,
-            createdAt: true,
-            updatedAt: true
+            created_at: true,
+            updated_at: true
         }
     });
 
@@ -282,10 +282,66 @@ r
         );
 });
 
+const deleteApplication = asyncHandler(async (req, res) => {
+
+    const{appId} = req.params
+
+    if(!appId){
+        throw new ApiError(
+            400,
+            "Plz select any app"
+        )
+    }
+
+    const user = req.user?.id;
+
+    if(!user){
+        throw new ApiError(
+            400,
+            "User needs to be authenticated"
+        )
+    }
+
+
+    const application = await prisma.application.findFirst({
+
+        where : {
+            id : appId,
+            userId : user
+        }
+    })
+
+    if(!application){
+
+        throw new ApiError(400 , "App not found")
+    }
+
+    const deleteApp  =  await prisma.application.delete( { 
+
+        where : {
+            id : appId,
+            userId : user
+        },
+
+    })
+
+
+        return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                {},
+                "Application deleted successfully"
+            )
+        );
+})
+
 
 export {
     createApplication,
     getApplications,
     getApplicationById,
-    updateApplication
+    updateApplication,
+    deleteApplication
 }
