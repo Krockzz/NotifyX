@@ -78,6 +78,7 @@ model EventType {
   id          String   @id @default(uuid())
   appId       String
   eventCode   String   @db.VarChar(50)
+  partitionKeyField String? @db.VarChar(50)
   description String?  @db.Text
   isActive    Boolean  @default(true)
   created_at  DateTime @default(now())
@@ -94,21 +95,23 @@ model EventType {
 }
 
 model Event {
-  id          String   @id @default(uuid())
-  appId       String
-  eventTypeId String
-  payload     Json
-  created_at  DateTime @default(now())
+  id           String   @id @default(uuid())
+  appId        String
+  eventTypeId  String
+  // key  String?  @db.VarChar(255)
+  payload      Json
+  created_at   DateTime @default(now())
 
-  application Application @relation(fields: [appId], references: [id], onDelete: Restrict)
+  application Application @relation(fields: [appId],references: [id],onDelete: Restrict )
 
-  eventType EventType @relation(fields: [appId, eventTypeId], references: [appId, id], onDelete: Restrict)
+  eventType EventType @relation(fields: [appId, eventTypeId],references: [appId, id],onDelete: Restrict)
 
   notifications Notification[]
   auditEntries  AuditLedger[]
 
   @@index([appId, created_at])
   @@index([eventTypeId, created_at])
+  // @@index([appId,  created_at])
 }
 
 model EventTypeChannel {
