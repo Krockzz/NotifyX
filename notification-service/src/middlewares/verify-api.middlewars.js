@@ -1,5 +1,6 @@
 import { HashApiKey } from "../utils/BasicFuntions.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
 import prisma from "../DB/index.js";
 
 export const verifyApiKey = asyncHandler(async (req, res, next) => {
