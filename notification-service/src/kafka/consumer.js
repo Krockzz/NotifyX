@@ -21,6 +21,8 @@ const connectConsumer = async() => {
 
         eachMessage: async ({ topic, partition, message }) => {
 
+            // THIS FUNCTION WOULD USE TO FETCH ALL ENABLED CHANNELS ALONG WITH IT'S PATH
+
             await processEvent({
                 topic,
                 partition,

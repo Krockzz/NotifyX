@@ -118,6 +118,7 @@ model EventTypeChannel {
   id          String      @id @default(uuid())
   eventTypeId String
   channelType ChannelType
+  recipientPath String? @db.VarChar(255)
   isEnabled   Boolean     @default(true)
   created_at  DateTime    @default(now())
 
