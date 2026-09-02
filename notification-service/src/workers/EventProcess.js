@@ -1,16 +1,14 @@
 import prisma from "../DB/index.js";
 import { extractPath } from "../utils/extractPath.js";
-
+import { renderTemplate } from "../utils/renderTemplate.js";
 
 const processEvent = async ({ topic, partition, message }) => {
 
     try {
 
-
         const eventData = JSON.parse(
             message.value.toString()
         );
-
 
         console.log("\n==============================");
         console.log("EVENT PROCESSOR");
@@ -20,9 +18,12 @@ const processEvent = async ({ topic, partition, message }) => {
         console.log("Partition:", partition);
         console.log("Offset:", message.offset);
         console.log("Key:", message.key?.toString());
-
         console.log("Kafka Data:", eventData);
 
+
+        // -----------------------------------
+        // 1. FIND EVENT
+        // -----------------------------------
 
         const event = await prisma.event.findFirst({
 
@@ -31,15 +32,12 @@ const processEvent = async ({ topic, partition, message }) => {
             },
 
             include: {
-
                 eventType: {
                     include: {
                         channels: true
                     }
                 }
-
             }
-
         });
 
 
@@ -55,14 +53,15 @@ const processEvent = async ({ topic, partition, message }) => {
 
         console.log("Event found:", event.id);
 
-
         console.log(
             "Event Type:",
             event.eventType.eventCode
         );
 
 
-    
+        // -----------------------------------
+        // 2. FIND ENABLED CHANNELS
+        // -----------------------------------
 
         const enabledChannels =
             event.eventType.channels.filter(
@@ -78,20 +77,11 @@ const processEvent = async ({ topic, partition, message }) => {
         );
 
 
+        // -----------------------------------
+        // 3. PROCESS EACH CHANNEL
+        // -----------------------------------
 
         for (const channel of enabledChannels) {
-
-console.log("DB Event Payload:", event.payload);
-console.log("Recipient Path:", channel.recipientPath);
-
-
-            const recipient = extractPath(
-                event.payload,
-                channel.recipientPath
-            );
-
-            console.log("Extracted Recipient:", recipient);
-
 
             console.log("\n------------------------------");
 
@@ -100,10 +90,21 @@ console.log("Recipient Path:", channel.recipientPath);
                 channel.channelType
             );
 
+
+            // -----------------------------------
+            // 4. EXTRACT RECIPIENT
+            // -----------------------------------
+
             console.log(
                 "Recipient Path:",
                 channel.recipientPath
             );
+
+            const recipient = extractPath(
+                event.payload,
+                channel.recipientPath
+            );
+
 
             console.log(
                 "Recipient:",
@@ -120,6 +121,109 @@ console.log("Recipient Path:", channel.recipientPath);
                 continue;
             }
 
+
+            // -----------------------------------
+            // 5. FIND TEMPLATE
+            // -----------------------------------
+
+            const template =
+                await prisma.template.findUnique({
+
+                    where: {
+                        eventTypeId_channelType: {
+                            eventTypeId: event.eventTypeId,
+                            channelType: channel.channelType
+                        }
+                    }
+                });
+
+
+            if (!template || !template.isActive) {
+
+                console.log(
+                    `Active template not found for ${channel.channelType}`
+                );
+
+                continue;
+            }
+
+
+            console.log(
+                "Template found:",
+                template.id
+            );
+
+
+            // -----------------------------------
+            // 6. RENDER TEMPLATE
+            // -----------------------------------
+
+            const renderedSubject =
+                template.subject
+                    ? renderTemplate(
+                        template.subject,
+                        event.payload
+                    )
+                    : null;
+
+
+            const renderedBody =
+                renderTemplate(
+                    template.bodyContent,
+                    event.payload
+                );
+
+
+            console.log(
+                "Rendered Subject:",
+                renderedSubject
+            );
+
+            console.log(
+                "Rendered Body:",
+                renderedBody
+            );
+
+
+            // -----------------------------------
+            // 7. CREATE NOTIFICATION
+            // -----------------------------------
+
+            const notification =
+                await prisma.notification.create({
+
+                    data: {
+
+                        eventId: event.id,
+
+                        templateId: template.id,
+
+                        channelType:
+                            channel.channelType,
+
+                        recipientTarget:
+                            recipient,
+
+                        subject:
+                            renderedSubject,
+
+                        bodyContent:
+                            renderedBody,
+
+                        status: "PENDING"
+                    }
+                });
+
+
+            console.log(
+                "Notification created:",
+                notification.id
+            );
+
+            console.log(
+                "Notification status:",
+                notification.status
+            );
         }
 
 

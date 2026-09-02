@@ -1,6 +1,3 @@
-// ================================
-// ENUMS
-// ================================
 
 enum ChannelType {
   EMAIL
@@ -150,10 +147,15 @@ model Notification {
   templateId      String
   channelType     ChannelType
   recipientTarget String             @db.VarChar(255)
+
+  subject         String?            @db.VarChar(255)
+  bodyContent     String             @db.Text
+
   status          NotificationStatus @default(PENDING)
   scheduledAt     DateTime?
-  created_at      DateTime           @default(now())
-  updated_at      DateTime           @updatedAt
+
+  created_at      DateTime            @default(now())
+  updated_at      DateTime            @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Restrict)
 

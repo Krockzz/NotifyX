@@ -2,6 +2,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import prisma from "../DB/index.js";
+import { sendEvent } from "../kafka/producer.js";
 
 
 const injestEvent = asyncHandler(async (req, res) => {
@@ -78,6 +79,15 @@ const injestEvent = asyncHandler(async (req, res) => {
             created_at: true
         }
     });
+
+ 
+    await sendEvent(
+    `${event.appId}#${event.id}`,
+    {
+        eventId: event.id,
+        appId: event.appId
+    }
+);
 
     return res
         .status(201)
