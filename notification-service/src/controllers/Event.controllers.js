@@ -82,10 +82,15 @@ const injestEvent = asyncHandler(async (req, res) => {
 
  
     await sendEvent(
+    "naas-events",
     `${event.appId}#${event.id}`,
     {
-        eventId: event.id,
-        appId: event.appId
+
+        eventId: event.id, 
+        appId: event.appId, 
+        eventTypeId: event.eventTypeId, 
+        eventCode: eventType.eventCode,
+         payload: event.payload
     }
 );
 

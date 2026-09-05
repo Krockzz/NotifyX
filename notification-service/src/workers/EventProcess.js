@@ -1,6 +1,7 @@
 import prisma from "../DB/index.js";
 import { extractPath } from "../utils/extractPath.js";
 import { renderTemplate } from "../utils/renderTemplate.js";
+import { sendEvent } from "../kafka/producer.js";
 
 const processEvent = async ({ topic, partition, message }) => {
 
@@ -224,6 +225,26 @@ const processEvent = async ({ topic, partition, message }) => {
                 "Notification status:",
                 notification.status
             );
+
+
+        if(notification.channelType === "EMAIL"){
+
+            await sendEvent (
+
+                "naas-email",
+                notification.id,
+
+                {
+                    notificationId : notification.id
+                }
+            );
+
+            console.log(
+        "Notification published to naas-email:",
+        notification.id
+    );
+            
+        }
         }
 
 

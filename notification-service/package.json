@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "consumer": "nodemon src/kafka/startConsumer.js"
+    "consumer": "nodemon src/kafka/startConsumer.js",
+    "emailWorker": "nodemon src/kafka/startEmailWorker.js"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "kafkajs": "^2.2.4",
+    "nodemailer": "^9.1.1",
     "nodemon": "^3.1.14"
   },
   "devDependencies": {

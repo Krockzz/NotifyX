@@ -1,6 +1,7 @@
 import {kafka} from "../config/kafka.js"
 import { processEvent } from "../workers/EventProcess.js";
 
+
 const consumer = kafka.consumer( {
     groupId : "event-processor"
 })
@@ -12,7 +13,7 @@ const connectConsumer = async() => {
 
     await consumer.subscribe({
         topic : "naas-events",
-        fromBeginning: false
+        fromBeginning: true
     })
 
     console.log("Consumer subscribed")

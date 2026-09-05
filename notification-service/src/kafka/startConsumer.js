@@ -1,7 +1,10 @@
 import { connectConsumer } from "./consumer.js";
+import { connectProducer } from "./producer.js";
 
 const startConsumer = async () => {
     try {
+
+        await connectProducer()
         await connectConsumer();
 
     } catch (err) {
