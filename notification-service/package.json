@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "consumer": "nodemon src/kafka/startConsumer.js",
-    "emailWorker": "nodemon src/kafka/startEmailWorker.js"
+    "emailWorker": "nodemon src/kafka/startEmailConsumer.js"
   },
   "keywords": [],
   "author": "",
