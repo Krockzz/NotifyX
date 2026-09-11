@@ -20,26 +20,28 @@ const sendEmail = async ({
     subject,
     body
 }) => {
+    try {
+        const info = await transporter.sendMail({
+            from: process.env.SMTP_FROM,
+            to,
+            subject,
+            text: body
+        });
 
-    try{
+        console.log("Email sent:", info.messageId);
 
-    const info = await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to,
-        subject,
-        text: body
-    });
+        return info;
+    } catch (error) {
+        console.error(
+            "Email sending failed:",
+            error.message
+        );
 
-    console.log("Email sent:", info.messageId);
-
-    return info;
-}
-catch(err){
-
-    console.error("Something is problem here", err)
-
-}
+        throw error;
+    }
 };
+
+
 
 export {
     sendEmail

@@ -8,6 +8,8 @@ async function connectProducer() {
 }
 
 const sendEvent = async (topic, key, event) => {
+
+   
     try {
         const result = await producer.send({
             topic,

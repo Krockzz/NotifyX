@@ -1,44 +1,18 @@
-import dotenv from "dotenv";
-import { connectProducer, sendEvent } from "../kafka/producer.js";
+import { connectProducer, sendEvent, producer } from "../kafka/producer.js";
 
-dotenv.config({
-    path: "./.env"
-});
+async function main() {
+    await connectProducer();
 
-const testEvent = async () => {
+    await sendEvent(
+        "naas-email",
+        "5eaec306-7cbe-45c0-b292-460dbd66423b",
+        {
+           notificationId: "5eaec306-7cbe-45c0-b292-460dbd66423b",
+           attemptNumber : 1
+        }
+    );
 
-    try {
+    await producer.disconnect();
+}
 
-        await connectProducer();
-
-        await sendEvent(
-            "app_123#ORD-123",
-
-            {
-                eventId: "b6b55a31-d857-4e4a-a6a0-6a50d7941e4e",
-                appId: "3ec7f3fe-ae42-4346-a1c5-884249457898",
-
-                payload: {
-                    orderId: "ORD-123",
-                    amount: 1500,
-                    customerEmail: "customer@example.com"
-                }
-            }
-        );
-
-        console.log("Test event sent!");
-
-        process.exit(0);
-
-    } catch (error) {
-
-        console.error(
-            "Failed to send test event:",
-            error
-        );
-
-        process.exit(1);
-    }
-};
-
-testEvent();
+main().catch(console.error);
