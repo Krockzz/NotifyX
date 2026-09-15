@@ -5,9 +5,9 @@ async function main() {
 
     await sendEvent(
         "naas-email",
-        "5eaec306-7cbe-45c0-b292-460dbd66423b",
+        "908bb6b9-0a94-409e-99a5-e8469ba65d9d",
         {
-           notificationId: "5eaec306-7cbe-45c0-b292-460dbd66423b",
+           notificationId: "908bb6b9-0a94-409e-99a5-e8469ba65d9d",
            attemptNumber : 1
         }
     );
