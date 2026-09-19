@@ -1,7 +1,6 @@
 import prisma from "../DB/index.js";
-import { Prisma } from "@prisma/client";
 import { sendEmail } from "../services/email.service.js";
-import {  shouldRetry,createRetryAttempt } from "../services/retry.services.js";
+import {  shouldRetry,createRetryAttempt , isPermanentError } from "../services/retry.services.js";
 
 const processEmailNotification = async ({
   topic,
@@ -214,46 +213,40 @@ const processEmailNotification = async ({
     );
 
     // 10. Schedule retry if allowed
-    if (
-      shouldRetry(
-        deliveryAttempt.attemptNumber,
-        error
+    
+    const retryAllowed = shouldRetry(deliveryAttempt.attemptNumber, error);
 
-      )
-    ) {
-      await createRetryAttempt({
+    if (retryAllowed) {
+    await createRetryAttempt({
         notification,
         currentAttempt: deliveryAttempt
-      });
-
-      console.log(
-        "Retry scheduled successfully."
-      );
-
-      console.log(
-        "Current Kafka message handled."
-      );
-
-      return;
-    }
-
-    // 11. Maximum retries reached
+    });
+} else {
     await prisma.notification.update({
-      where: {
-        id: notification.id
-      },
-      data: {
-        status: "FAILED"
-      }
+        where: {
+            id: notification.id
+        },
+        data: {
+            status: "FAILED"
+        }
     });
 
-    console.log(
-      "Maximum attempts reached."
-    );
+    if (isPermanentError(error)) {
+        console.log(
+            "Permanent error detected. Retry skipped."
+        );
+    } else {
+        console.log(
+            "Maximum attempts reached."
+        );
+    }
 
     console.log(
-      "Notification status: FAILED"
+        "Notification status: FAILED"
     );
+}
+
+
   }
 };
 

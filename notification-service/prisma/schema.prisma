@@ -181,6 +181,8 @@ model DeliveryAttempt {
   providerMessageId String?        @db.VarChar(255)
   errorReason       String?        @db.Text
   created_at        DateTime       @default(now())
+  nextRetryAt DateTime?
+  retryClaimedAt DateTime?
 
   notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 

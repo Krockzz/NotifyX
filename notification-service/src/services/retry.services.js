@@ -1,14 +1,45 @@
-import { sendEvent } from "../kafka/producer.js";
+import prisma from "../DB/index.js";
 
 const MAX_ATTEMPTS = 3;
 
 const RETRY_DELAYS = {
-    1: 10_000,   // 10 seconds before attempt 2
-    2: 30_000,   // 30 seconds before attempt 3
-    3: 120_000   // 2 minutes, if needed later
+    1: 10_000, // 10 seconds
+    2: 30_000  // 30 seconds
+};
+
+const PERMANENT_ERROR_CODES = [
+    "EINVALIDRECIPIENT",
+    "EENVELOPE",
+    "INVALID_RECIPIENT"
+];
+
+const PERMANENT_ERROR_MESSAGES = [
+    "invalid email",
+    "invalid recipient",
+    "recipient rejected",
+    "mailbox does not exist",
+    "user unknown",
+    "bad recipient",
+    "malformed recipient"
+];
+
+const isPermanentError = (error) => {
+
+    const errorCode = error?.code;
+    const errorMessage =
+        error?.message?.toLowerCase() || "";
+
+    if (PERMANENT_ERROR_CODES.includes(errorCode)) {
+        return true;
+    }
+
+    return PERMANENT_ERROR_MESSAGES.some((message) =>
+        errorMessage.includes(message)
+    );
 };
 
 const shouldRetry = (attemptNumber, error) => {
+
     if (attemptNumber >= MAX_ATTEMPTS) {
         return false;
     }
@@ -20,76 +51,50 @@ const shouldRetry = (attemptNumber, error) => {
     return true;
 };
 
-const isPermanentError = (error) => {
-    const message = error?.message?.toLowerCase() || "";
-
-    const permanentErrors = [
-        "invalid email",
-        "recipient rejected",
-        "mailbox unavailable",
-        "user unknown",
-        "bad recipient"
-    ];
-
-    return permanentErrors.some((errorText) =>
-        message.includes(errorText)
-    );
-};
-
 const getNextAttemptNumber = (attemptNumber) => {
     return attemptNumber + 1;
 };
 
 const getRetryDelay = (attemptNumber) => {
-    return RETRY_DELAYS[attemptNumber] || 120_000;
+    return RETRY_DELAYS[attemptNumber];
 };
 
 const createRetryAttempt = async ({
-    notification,
     currentAttempt
 }) => {
-    const nextAttemptNumber = getNextAttemptNumber(
-        currentAttempt.attemptNumber
+
+    const nextAttemptNumber =
+        getNextAttemptNumber(
+            currentAttempt.attemptNumber
+        );
+
+    const retryDelay =
+        getRetryDelay(
+            currentAttempt.attemptNumber
+        );
+
+    const nextRetryAt = new Date(
+        Date.now() + retryDelay
     );
 
-    const retryDelay = getRetryDelay(
-        currentAttempt.attemptNumber
-    );
+    await prisma.deliveryAttempt.update({
+        where: {
+            id: currentAttempt.id
+        },
+        data: {
+            nextRetryAt
+        }
+    });
 
     console.log(
-        `Retry #${nextAttemptNumber} scheduled after ${
-            retryDelay / 1000
-        } seconds`
+        `Retry #${nextAttemptNumber} scheduled for:`,
+        nextRetryAt
     );
 
-    // Only for local-testing not production safe this one
-
-    
-
-    setTimeout(async () => {
-        try {
-            await sendEvent(
-                "naas-email",
-                notification.id,
-                {
-                    notificationId: notification.id,
-                    attemptNumber: nextAttemptNumber
-                }
-            );
-
-            console.log(
-                `Retry #${nextAttemptNumber} published for notification:`,
-                notification.id
-            );
-        } catch (error) {
-            console.error(
-                "Failed to publish retry event:",
-                error.message
-            );
-        }
-    }, retryDelay);
-
-    return nextAttemptNumber;
+    return {
+        nextAttemptNumber,
+        nextRetryAt
+    };
 };
 
 export {
