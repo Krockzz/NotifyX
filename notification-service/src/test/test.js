@@ -4,13 +4,15 @@ async function main() {
     await connectProducer();
 
     await sendEvent(
-        "naas-email",
-        "908bb6b9-0a94-409e-99a5-e8469ba65d9d",
-        {
-           notificationId: "908bb6b9-0a94-409e-99a5-e8469ba65d9d",
-           attemptNumber : 1
-        }
-    );
+    "naas-events",
+    "520a8128-d289-4bef-a2e6-fd019a501539",
+    {
+        eventId: "520a8128-d289-4bef-a2e6-fd019a501539",
+        appId: "3ec7f3fe-ae42-4346-a1c5-884249457898",
+        eventTypeId: "1c2ea995-dfd2-405d-96a9-ff9dd90cc293"
+    }
+);
+    
 
     await producer.disconnect();
 }

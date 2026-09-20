@@ -21,6 +21,12 @@ enum DeliveryStatus {
   FAILED
 }
 
+enum OutboxStatus{
+
+  PENDING
+  PUBLISHED
+}
+
 // ================================
 // DATABASE
 // ================================
@@ -189,6 +195,24 @@ model DeliveryAttempt {
 
   @@unique([notificationId, attemptNumber])
 }
+
+// ================================
+// OUTBOX STATUS
+// ================================
+
+model OutboxEvent {
+  id           String       @id @default(uuid())
+  topic        String       @db.VarChar(255)
+  messageKey   String       @db.VarChar(255)
+  payload      Json
+  status       OutboxStatus @default(PENDING)
+  created_at   DateTime     @default(now())
+  published_at DateTime?
+
+  @@index([status, created_at])
+}
+
+
 
 // ================================
 // AUDIT LEDGER
