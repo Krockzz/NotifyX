@@ -87,6 +87,18 @@ const processRetry = async () => {
     }
 );
 
+       await prisma.deliveryAttempt.update({
+        where: {
+            id: attempt.id
+        },
+        data: {
+            nextRetryAt: null,
+            retryClaimedAt: null
+        }
+    });
+
+    
+
         console.log(
             `Retry #${nextAttemptNumber} published for notification ${attempt.notificationId}`
         );

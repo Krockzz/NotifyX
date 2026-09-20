@@ -1,5 +1,6 @@
 import { connectConsumer } from "./consumer.js";
 import { connectProducer } from "./producer.js";
+import "dotenv/config";
 
 const startConsumer = async () => {
     try {

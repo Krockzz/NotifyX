@@ -166,6 +166,7 @@ model Notification {
 
   @@index([status, created_at])
   @@index([eventId])
+  @@unique([eventId, channelType]) // db based level protection for the duplicate messages
 }
 
 // ================================

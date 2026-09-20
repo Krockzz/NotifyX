@@ -2,6 +2,8 @@ import prisma from "../DB/index.js";
 import { extractPath } from "../utils/extractPath.js";
 import { renderTemplate } from "../utils/renderTemplate.js";
 import { sendEvent } from "../kafka/producer.js";
+import { Prisma } from "@prisma/client";
+
 
 const processEvent = async ({ topic, partition, message }) => {
 
@@ -159,6 +161,8 @@ const processEvent = async ({ topic, partition, message }) => {
             // 6. RENDER TEMPLATE
             // -----------------------------------
 
+            // this is where values are being put in the placeholder palce in template
+
             const renderedSubject =
                 template.subject
                     ? renderTemplate(
@@ -190,61 +194,67 @@ const processEvent = async ({ topic, partition, message }) => {
             // 7. CREATE NOTIFICATION
             // -----------------------------------
 
-            const notification =
-                await prisma.notification.create({
+            // -----------------------------------
+// 7. CREATE NOTIFICATION
+// -----------------------------------
 
-                    data: {
+let notification;
 
-                        eventId: event.id,
+try {
+    notification = await prisma.notification.create({
+        data: {
+            eventId: event.id,
+            templateId: template.id,
+            channelType: channel.channelType,
+            recipientTarget: recipient,
+            subject: renderedSubject,
+            bodyContent: renderedBody,
+            status: "PENDING"
+        }
+    });
 
-                        templateId: template.id,
+} catch (error) {
 
-                        channelType:
-                            channel.channelType,
+    if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+    ) {
+        console.log(
+            `Notification already exists for event ${event.id} and channel ${channel.channelType}. Skipping...`
+        );
 
-                        recipientTarget:
-                            recipient,
+        continue;
+    }
 
-                        subject:
-                            renderedSubject,
+    throw error;
+}
 
-                        bodyContent:
-                            renderedBody,
+console.log(
+    "Notification created:",
+    notification.id
+);
 
-                        status: "PENDING"
-                    }
-                });
+console.log(
+    "Notification status:",
+    notification.status
+);
 
+if (notification.channelType === "EMAIL") {
+    await sendEvent(
+        "naas-email",
+        notification.id,
+        {
+            notificationId: notification.id
+        }
+    );
 
-            console.log(
-                "Notification created:",
-                notification.id
-            );
-
-            console.log(
-                "Notification status:",
-                notification.status
-            );
-
-
-        if(notification.channelType === "EMAIL"){
-
-            await sendEvent (
-
-                "naas-email",
-                notification.id,
-
-                {
-                    notificationId : notification.id
-                }
-            );
-
-            console.log(
+    console.log(
         "Notification published to naas-email:",
         notification.id
     );
-            
-        }
+}
+
+
         }
 
 

@@ -1,6 +1,7 @@
 
 import { connectEmailConsumer } from "./email_consumer.js";
 import { connectProducer } from "./producer.js";
+import "dotenv/config";
 
 const startEmailWorker = async () => {
     try {
