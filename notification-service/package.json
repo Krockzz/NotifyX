@@ -7,7 +7,8 @@
     "dev": "nodemon src/index.js",
     "consumer": "nodemon src/kafka/startConsumer.js",
     "emailWorker": "nodemon src/kafka/startEmailConsumer.js",
-    "retryScheduler" : "nodemon src/Retry/startretryScheduler.js"
+    "retryScheduler" : "nodemon src/Retry/startretryScheduler.js",
+    "outboxPublisher" : "nodemon src/OutBox/startOutBoxPublisher.js"
   },
   "keywords": [],
   "author": "",

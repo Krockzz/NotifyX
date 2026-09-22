@@ -1,7 +1,7 @@
 import prisma from "../DB/index.js";
 import { extractPath } from "../utils/extractPath.js";
 import { renderTemplate } from "../utils/renderTemplate.js";
-import { sendEvent } from "../kafka/producer.js";
+// import { sendEvent } from "../kafka/producer.js";
 import { Prisma } from "@prisma/client";
 
 
@@ -194,24 +194,46 @@ const processEvent = async ({ topic, partition, message }) => {
             // 7. CREATE NOTIFICATION
             // -----------------------------------
 
-            // -----------------------------------
-// 7. CREATE NOTIFICATION
-// -----------------------------------
+       
 
 let notification;
 
 try {
-    notification = await prisma.notification.create({
-        data: {
-            eventId: event.id,
-            templateId: template.id,
-            channelType: channel.channelType,
-            recipientTarget: recipient,
-            subject: renderedSubject,
-            bodyContent: renderedBody,
-            status: "PENDING"
+
+    notification = await prisma.$transaction(async(tx) => {
+
+
+        const notification = await tx.notification.create({
+
+            data : {
+
+                eventId: event.id,
+                templateId: template.id,
+                channelType: channel.channelType,
+                recipientTarget: recipient,
+                subject: renderedSubject,
+                bodyContent: renderedBody,
+                status: "PENDING"
+            }
+        });
+
+        await tx.outboxEvent.create({
+
+                data: {
+                topic: `naas-${channel.channelType.toLowerCase()}`,
+                messageKey: notification.id,
+                payload: {
+                    notificationId: notification.id
+                }
+
         }
+
     });
+
+    return notification;
+
+});
+   
 
 } catch (error) {
 
@@ -239,20 +261,6 @@ console.log(
     notification.status
 );
 
-if (notification.channelType === "EMAIL") {
-    await sendEvent(
-        "naas-email",
-        notification.id,
-        {
-            notificationId: notification.id
-        }
-    );
-
-    console.log(
-        "Notification published to naas-email:",
-        notification.id
-    );
-}
 
 
         }
