@@ -35,7 +35,7 @@ const processOutBox = async() => {
 
         await prisma.outboxEvent.update({
             where: {
-                id: outboxEvent.id
+                id: OutBox.id
             },
             data: {
                 status: "PUBLISHED",
@@ -44,7 +44,7 @@ const processOutBox = async() => {
         });
 
         console.log(
-            `Outbox event ${outboxEvent.id} published successfully`
+            `Outbox event ${OutBox.id} published successfully`
         );
 
 
@@ -53,7 +53,7 @@ const processOutBox = async() => {
     catch(err){
 
          console.error(
-            `Failed to publish outbox event ${outboxEvent.id}:`,
+            `Failed to publish outbox event ${OutBox.id}:`,
             err
         );
 
