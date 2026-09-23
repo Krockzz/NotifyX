@@ -24,6 +24,7 @@ enum DeliveryStatus {
 enum OutboxStatus{
 
   PENDING
+  PROCESSING
   PUBLISHED
 }
 
@@ -208,6 +209,7 @@ model OutboxEvent {
   status       OutboxStatus @default(PENDING)
   created_at   DateTime     @default(now())
   published_at DateTime?
+  claimed_at DateTime?
 
   @@index([status, created_at])
 }

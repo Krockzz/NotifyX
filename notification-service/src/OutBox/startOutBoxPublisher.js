@@ -1,4 +1,4 @@
-import { processOutBox } from "./outBoxPublisher.js";
+import { recoverStaleOutboxEvents } from "./outBoxPublisher.js";
 import "dotenv/config"
 import { connectProducer } from "../kafka/producer.js";
 
@@ -12,7 +12,7 @@ const start = () => {
 
      try{
 
-        await processOutBox();
+        await recoverStaleOutboxEvents();
     }
     catch(err){
 
