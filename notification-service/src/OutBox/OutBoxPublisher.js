@@ -1,52 +1,67 @@
-// import "dotenv/config"
 
-import prisma from "../DB/index.js"
-import {sendEvent} from "../kafka/producer.js"
+import prisma from "../DB/index.js";
+import { sendEvent } from "../kafka/producer.js";
 
 const CLAIM_TIMEOUT = 10_000;
 
-const recoverStaleOutboxEvents = async() => {
+const recoverStaleOutboxEvents = async () => {
+    const staleBefore = new Date(
+        Date.now() - CLAIM_TIMEOUT
+    );
 
-    const staleBefore = new Date( Date.now() - CLAIM_TIMEOUT)
+    const recovered = await prisma.$transaction(async (tx) => {
 
-    const recovered = await prisma.outboxEvent.updateMany({
+        const staleEvents = await tx.$queryRaw`
+            SELECT id, status, claimed_at, created_at
+            FROM "OutboxEvent"
+            WHERE status = 'PROCESSING'
+              AND claimed_at <= ${staleBefore}
+            ORDER BY created_at ASC
+            FOR UPDATE SKIP LOCKED
+        `;
 
-        where: {
-
-            status: "PROCESSING",
-            claimed_at : {
-                lte : staleBefore
-            }
+        if (staleEvents.length === 0) {
+            return 0;
         }
-        ,
-        data:{
 
-            status : "PENDING",
-            claimed_at : null
+        for (const event of staleEvents) {
+
+            await tx.outboxEvent.update({
+                where: {
+                    id: event.id
+                },
+                data: {
+                    status: "PENDING",
+                    claimed_at: null
+                }
+            });
         }
-    })
 
-    if(recovered.count > 0){
+        return staleEvents.length;
+    });
 
-        console.log(`We found total of ${recovered.count} stale Events`)
+    if (recovered > 0) {
+        console.log(
+            `Recovered ${recovered} stale outbox events`
+        );
     }
-
-}
-
-
-const claimOutBoxEvent = async() => {
-
-    const claimEvent = await prisma.$transaction(async(tx) => {
+};
 
 
-       
+
+
+const claimOutBoxEvent = async () => {
+
+    const claimEvent = await prisma.$transaction(
+    async (tx) => {
+
         const events = await tx.$queryRaw`
             SELECT *
             FROM "OutboxEvent"
             WHERE status = 'PENDING'
             ORDER BY created_at ASC
             LIMIT 1
-            FOR UPDATE SKIP LOCKED  -- Concurrency Control adding the lock along with the skip
+            FOR UPDATE SKIP LOCKED
         `;
 
         if (events.length === 0) {
@@ -55,58 +70,60 @@ const claimOutBoxEvent = async() => {
 
         const event = events[0];
 
+        console.log(
+            `Claiming OutBox Event: ${event.id}`
+        );
+
+        // TEST ONLY
+        await new Promise(resolve =>
+            setTimeout(resolve, 5000)
+        );
+
         await tx.outboxEvent.update({
-
             where: {
-
-                id : event.id
+                id: event.id
             },
-
             data: {
-
-                status : "PROCESSING",
-                claimed_at : new Date()
-
-
+                status: "PROCESSING",
+                claimed_at: new Date()
             }
-        })
+        });
 
-        return event
+        return event;
+    },
+    {
+        timeout: 10_000
+    }
+);
 
-    })
+    return claimEvent;
+};
 
-    return claimEvent
-}
 
-const processOutBox = async() => {
 
-    // Find the event and apply claim
+const processOutBox = async () => {
 
-    const OutBox = await claimOutBoxEvent()
-  
-    // if there is noting simply return
-    if(!OutBox){
+    // Find and claim one PENDING event
+    const outBox = await claimOutBoxEvent();
+
+    // Nothing available
+    if (!outBox) {
         return;
     }
 
-    try{
+    try {
 
-        // no send the event into kafka
-
+        // Publish event to Kafka
         await sendEvent(
+            outBox.topic,
+            outBox.messageKey,
+            outBox.payload
+        );
 
-            OutBox.topic,
-            OutBox.messageKey,
-            OutBox.payload
-        )
-
-        // console.log("Event Published this is for simulation");
-
-        // process.exit(1) // Indicating the error ok then
-
+        // Mark as successfully published
         await prisma.outboxEvent.update({
             where: {
-                id: OutBox.id
+                id: outBox.id
             },
             data: {
                 status: "PUBLISHED",
@@ -115,29 +132,22 @@ const processOutBox = async() => {
         });
 
         console.log(
-            `Outbox event ${OutBox.id} published successfully`
+            `Outbox event ${outBox.id} published successfully`
         );
 
+    } catch (err) {
 
-
-    }
-    catch(err){
-
-         console.error(
-            `Failed to publish outbox event ${OutBox.id}:`,
+        console.error(
+            `Failed to publish outbox event ${outBox.id}:`,
             err
         );
-
-
     }
+};
 
 
-}
-
- 
-
-
-export{
+export {
     processOutBox,
     recoverStaleOutboxEvents
-}
+};
+
+

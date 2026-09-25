@@ -1,30 +1,19 @@
-import { recoverStaleOutboxEvents } from "./outBoxPublisher.js";
-import "dotenv/config"
+import "dotenv/config";
 import { connectProducer } from "../kafka/producer.js";
+import {
+    processOutBox,
+    recoverStaleOutboxEvents
+} from "./outBoxPublisher.js";
 
-const PULLING_INTERVAL = 5_000
+const OUTBOX_POLL_INTERVAL = 5000; // At every 5 sec process the events
 
-const start = () => {
+await connectProducer();
 
-    connectProducer() // this is important as this is standalone process
-
-   setInterval(async () => {
-
-     try{
-
+setInterval(async () => {
+    try {
         await recoverStaleOutboxEvents();
+        await processOutBox();
+    } catch (error) {
+        console.error("Outbox publisher error:", error);
     }
-    catch(err){
-
-        console.error("OutBox Processing Error: " , err)
-    }
-
-
-   } , PULLING_INTERVAL)
-
-
-
-}
-
-
-start()
+}, OUTBOX_POLL_INTERVAL);
