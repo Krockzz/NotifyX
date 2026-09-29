@@ -58,10 +58,14 @@ const claimOutBoxEvent = async () => {
         const events = await tx.$queryRaw`
             SELECT *
             FROM "OutboxEvent"
-            WHERE status = 'PENDING'
-            ORDER BY created_at ASC
-            LIMIT 1
-            FOR UPDATE SKIP LOCKED
+           WHERE status = 'PENDING'
+  AND (
+     "nextRetryAt"  IS NULL
+      OR  "nextRetryAt" <= NOW()
+  )
+ORDER BY created_at ASC
+LIMIT 1
+FOR UPDATE SKIP LOCKED
         `;
 
         if (events.length === 0) {
@@ -74,10 +78,6 @@ const claimOutBoxEvent = async () => {
             `Claiming OutBox Event: ${event.id}`
         );
 
-        // TEST ONLY
-        await new Promise(resolve =>
-            setTimeout(resolve, 5000)
-        );
 
         await tx.outboxEvent.update({
             where: {
@@ -91,18 +91,13 @@ const claimOutBoxEvent = async () => {
 
         return event;
     },
-    {
-        timeout: 10_000
-    }
+ 
 );
 
     return claimEvent;
 };
 
-
-
 const processOutBox = async () => {
-
     // Find and claim one PENDING event
     const outBox = await claimOutBoxEvent();
 
@@ -112,7 +107,6 @@ const processOutBox = async () => {
     }
 
     try {
-
         // Publish event to Kafka
         await sendEvent(
             outBox.topic,
@@ -127,7 +121,8 @@ const processOutBox = async () => {
             },
             data: {
                 status: "PUBLISHED",
-                published_at: new Date()
+                published_at: new Date(),
+                nextRetryAt: null
             }
         });
 
@@ -141,8 +136,39 @@ const processOutBox = async () => {
             `Failed to publish outbox event ${outBox.id}:`,
             err
         );
+
+        const retryCount = outBox.retryCount + 1;
+
+        const delay = Math.min(
+            1000 * Math.pow(2, outBox.retryCount),
+            60_000
+        );
+
+        const nextRetryAt = new Date(
+            Date.now() + delay
+        );
+
+        await prisma.outboxEvent.update({
+            where: {
+                id: outBox.id
+            },
+            data: {
+                status: "PENDING",
+                retryCount,
+                nextRetryAt,
+                claimed_at: null
+            }
+        });
+
+        console.log(
+            `Retry ${retryCount} scheduled for ${nextRetryAt.toISOString()}`
+        );
     }
 };
+
+
+
+
 
 
 export {

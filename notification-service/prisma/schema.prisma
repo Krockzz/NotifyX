@@ -206,14 +206,18 @@ model OutboxEvent {
   topic        String       @db.VarChar(255)
   messageKey   String       @db.VarChar(255)
   payload      Json
+
   status       OutboxStatus @default(PENDING)
+
+  retryCount   Int          @default(0)
+  nextRetryAt  DateTime?
+
   created_at   DateTime     @default(now())
+  claimed_at   DateTime?
   published_at DateTime?
-  claimed_at DateTime?
 
-  @@index([status, created_at])
+  @@index([status, nextRetryAt, created_at])
 }
-
 
 
 // ================================
