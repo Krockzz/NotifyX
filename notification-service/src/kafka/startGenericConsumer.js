@@ -1,19 +1,28 @@
 
 import { connectEmailConsumer } from "./email_consumer.js";
+import { connectSmsConsumer } from "./sms_consumer.js";
+
+
 import { connectProducer } from "./producer.js";
 import "dotenv/config";
 
-const startEmailWorker = async () => {
+const startGenericWorker = async () => {
     try {
 
         await connectProducer();
-        await connectEmailConsumer();
 
+        Promise.all([
+
+        connectEmailConsumer(),
+        connectSmsConsumer()
+        ]
+
+        )
     } 
     
     catch (error) {
         console.error(
-            "Email Worker failed to start:",
+            " Worker failed to start:",
             error
         );
 
@@ -21,5 +30,5 @@ const startEmailWorker = async () => {
     }
 };
 
-startEmailWorker();
+startGenericWorker();
 

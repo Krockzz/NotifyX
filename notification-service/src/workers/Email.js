@@ -1,6 +1,7 @@
 import prisma from "../DB/index.js";
-import { sendEmail } from "../services/email.service.js";
+import { deliverNotification } from "../services/notificationDelivery.services.js";
 import {  shouldRetry,createRetryAttempt , isPermanentError } from "../services/retry.services.js";
+import { Prisma } from "@prisma/client";
 
 const processEmailNotification = async ({
   topic,
@@ -146,11 +147,7 @@ const processEmailNotification = async ({
     );
 
     // 6. Send email
-    const emailInfo = await sendEmail({
-      to: notification.recipientTarget,
-      subject: notification.subject,
-      body: notification.bodyContent
-    });
+    const deliveryInfo = await deliverNotification(notification);
 
     console.log(
       "Email sent successfully"
@@ -163,7 +160,7 @@ const processEmailNotification = async ({
       },
       data: {
         status: "SUCCESS",
-        providerMessageId: emailInfo.messageId
+        providerMessageId: deliveryInfo.messageId
       }
     });
 

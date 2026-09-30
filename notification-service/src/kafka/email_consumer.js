@@ -1,41 +1,25 @@
-import { kafka } from "../config/kafka.js"
-import { processEmailNotification } from "../workers/Email.js"
+import { createNotificationConsumer } from "./NotificationConsumer.js";
 
-const emailConsumer = kafka.consumer({
-
-    groupId : "email-worker"
-})
-
-const connectEmailConsumer = async() => {
-
-    await emailConsumer.connect()
-    console.log("Email Processor Consumer connected!!")
-
-   await emailConsumer.subscribe(
-    { topic: "naas-email", 
-    fromBeginning: true
- });
-
-    console.log("Email Worker subscribed to naas-email");
-
-    await emailConsumer.run({
-
-        eachMessage: async({topic, partition, message}) => {
-
-            await processEmailNotification({
-
-                topic,
-                partition,
-                message
-            }
-            )
+import {
+    processEmailNotification
+} from "../workers/Email.js";
 
 
-        }
-    })
-}
+const {
+    consumer: emailConsumer,
+    connectConsumer: connectEmailConsumer
+} = createNotificationConsumer({
+
+    groupId: "email-worker",
+
+    topic: "naas-email",
+
+    handler: processEmailNotification
+
+});
+
 
 export {
     emailConsumer,
     connectEmailConsumer
-}
+};

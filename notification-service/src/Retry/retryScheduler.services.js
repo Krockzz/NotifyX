@@ -33,6 +33,10 @@ const processRetry = async () => {
             ]
         },
 
+          include: {
+        notification: true
+    },
+
         orderBy: {
             nextRetryAt: "asc"
         }
@@ -76,10 +80,13 @@ const processRetry = async () => {
     const nextAttemptNumber =
         attempt.attemptNumber + 1;
 
+  const topic =
+    `naas-${attempt.notification.channelType.toLowerCase()}`;
+
     try {
     
     await sendEvent(
-    "naas-email",
+    topic,
     attempt.notificationId,
     {
         notificationId: attempt.notificationId,

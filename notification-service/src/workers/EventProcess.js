@@ -1,7 +1,6 @@
 import prisma from "../DB/index.js";
 import { extractPath } from "../utils/extractPath.js";
 import { renderTemplate } from "../utils/renderTemplate.js";
-// import { sendEvent } from "../kafka/producer.js";
 import { Prisma } from "@prisma/client";
 
 
