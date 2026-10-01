@@ -1,6 +1,7 @@
 
 import { connectEmailConsumer } from "./email_consumer.js";
 import { connectSmsConsumer } from "./sms_consumer.js";
+import { connectPushConsumer } from "./push_consumer.js";
 
 
 import { connectProducer } from "./producer.js";
@@ -14,10 +15,10 @@ const startGenericWorker = async () => {
         Promise.all([
 
         connectEmailConsumer(),
-        connectSmsConsumer()
-        ]
-
-        )
+        connectSmsConsumer(),
+        connectPushConsumer()
+        
+        ])
     } 
     
     catch (error) {

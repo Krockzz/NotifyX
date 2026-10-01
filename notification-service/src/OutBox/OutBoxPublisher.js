@@ -98,7 +98,7 @@ FOR UPDATE SKIP LOCKED
 };
 
 const processOutBox = async () => {
-    // Find and claim one PENDING event
+    
     const outBox = await claimOutBoxEvent();
 
     // Nothing available

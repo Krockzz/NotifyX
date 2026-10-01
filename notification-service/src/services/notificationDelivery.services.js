@@ -2,6 +2,7 @@
 
 import { sendEmail } from "./email.service.js";
 import { sendSMS } from "./sms.services.js";
+import { sendPush } from "./push.services.js";
 
 const deliverNotification = async (notification) => {
 
@@ -29,6 +30,18 @@ const deliverNotification = async (notification) => {
                 body: notification.bodyContent
             })
 
+
+        }
+
+        case  "PUSH" : {
+
+            return await sendPush({
+
+                to: notification.recipientTarget,
+                title: notification.subject,
+                body : notification.bodyContent
+
+            })
 
         }
 
