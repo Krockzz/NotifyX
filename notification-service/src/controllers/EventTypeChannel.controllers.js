@@ -15,7 +15,7 @@ const createEventChannel = asyncHandler(async (req , res) => {
         )
     }
 
-    const { channelType} = req.body
+    const { channelType, recipientPath} = req.body
 
       const allowedChannels = [
         "EMAIL",
@@ -30,6 +30,15 @@ const createEventChannel = asyncHandler(async (req , res) => {
             "Invalid channel type"
         );
     }
+
+    if (!recipientPath) {
+    throw new ApiError(
+        400,
+        "recipientPath is required"
+    );
+}
+
+
 
     const user = req.user?.id
     if(!user){
@@ -74,12 +83,14 @@ const createEventChannel = asyncHandler(async (req , res) => {
         data: {
             eventTypeId: eventTypeId,
             channelType: channelType,
+            recipientPath: recipientPath,
             isEnabled: true
         },
         select: {
             id: true,
             eventTypeId: true,
             channelType: true,
+            recipientPath: true,
             isEnabled: true,
             created_at: true
         }
@@ -152,6 +163,7 @@ const getChannels = asyncHandler(async (req, res) => {
             id: true,
             eventTypeId: true,
             channelType: true,
+            recipientPath: true,
             isEnabled: true,
             created_at: true
         },
@@ -182,7 +194,7 @@ const getChannels = asyncHandler(async (req, res) => {
 const updateChannel = asyncHandler(async (req, res) => {
 
     const { channelId } = req.params;
-    const { isEnabled } = req.body;
+    const { isEnabled, recipientPath } = req.body;
 
 
     if (!channelId) {
@@ -201,12 +213,22 @@ const updateChannel = asyncHandler(async (req, res) => {
         );
     }
 
-    if (typeof isEnabled !== "boolean") {
+    if (isEnabled !== undefined && (typeof isEnabled !== "boolean") ) {
         throw new ApiError(
             400,
             "isEnabled must be a boolean"
         );
     }
+
+    if (
+    recipientPath !== undefined &&
+    (!recipientPath || typeof recipientPath !== "string")
+) {
+    throw new ApiError(
+        400,
+        "recipientPath must be a non-empty string"
+    );
+}
 
     const channel = await prisma.eventTypeChannel.findFirst({
         where: {
@@ -232,13 +254,19 @@ const updateChannel = asyncHandler(async (req, res) => {
             where: {
                 id: channelId
             },
-            data: {
-                isEnabled: isEnabled
-            },
+      data: {
+    ...(isEnabled !== undefined && {
+        isEnabled: isEnabled
+    }),
+    ...(recipientPath !== undefined && {
+        recipientPath: recipientPath
+    })
+},
             select: {
                 id: true,
                 eventTypeId: true,
                 channelType: true,
+                recipientPath: true,
                 isEnabled: true,
                 created_at: true
             }
@@ -295,7 +323,7 @@ const deleteChannel = asyncHandler(async (req , res) => {
         }
     })
 
-    if(!user){
+    if(!channel){
 
         throw new ApiError(
             400,

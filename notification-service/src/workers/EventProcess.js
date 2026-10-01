@@ -114,14 +114,35 @@ const processEvent = async ({ topic, partition, message }) => {
             );
 
 
-            if (!recipient) {
+           if (!recipient) {
+    console.log(
+        `Recipient data missing for channel ${channel.channelType}`
+    );
 
-                console.log(
-                    `Recipient not found for channel ${channel.channelType}`
-                );
+    console.log(
+        `Expected recipient path: ${channel.recipientPath}`
+    );
 
-                continue;
+      
+    await prisma.auditLedger.create({
+        data: {
+            appId: event.appId,
+            eventId: event.id,
+            notificationId: null,
+
+            action: "CHANNEL_VALIDATION",
+            status: "FAILED",
+
+            metadata: {
+                channel: channel.channelType,
+                recipientPath: channel.recipientPath,
+                reason: "RECIPIENT_NOT_FOUND"
             }
+        }
+    });
+
+    continue;
+}
 
 
             // -----------------------------------
