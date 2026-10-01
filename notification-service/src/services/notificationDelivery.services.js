@@ -1,3 +1,5 @@
+// A generic module to send the notification
+
 import { sendEmail } from "./email.service.js";
 import { sendSMS } from "./sms.services.js";
 

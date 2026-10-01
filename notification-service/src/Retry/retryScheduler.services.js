@@ -1,3 +1,7 @@
+// this is basically used when the max attempt's of notification is reached and well hmm
+// Want to retry again
+// this is polling strategy pulling fetching the such events in intervals
+
 import prisma from "../DB/index.js";
 import { sendEvent, connectProducer } from "../kafka/producer.js";
 

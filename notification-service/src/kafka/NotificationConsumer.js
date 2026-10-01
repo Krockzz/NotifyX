@@ -6,7 +6,8 @@ const createNotificationConsumer = ({
     handler
 }) => {
 
-    // name of the consumer
+    
+    // Creating the consumer with the grp-id
 
     const consumer = kafka.consumer({
         groupId
