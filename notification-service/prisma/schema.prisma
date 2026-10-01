@@ -1,4 +1,11 @@
 
+enum DeadLetterStatus {
+  PENDING
+  REPLAYED
+  RESOLVED
+}
+
+
 enum ChannelType {
   EMAIL
   SMS
@@ -171,6 +178,8 @@ model Notification {
   deliveryAttempts DeliveryAttempt[]
   auditEntries     AuditLedger[]
 
+   deadLetter DeadLetter?
+
   @@index([status, created_at])
   @@index([eventId])
   @@unique([eventId, channelType]) // db based level protection for the duplicate messages
@@ -243,4 +252,32 @@ model AuditLedger {
   @@index([appId, created_at])
   @@index([eventId, created_at])
   @@index([notificationId, created_at])
+}
+
+model DeadLetter {
+  id             String   @id @default(uuid())
+
+  appId          String
+  eventId        String
+  notificationId String
+
+  channelType    ChannelType
+
+  attemptCount   Int
+  reason         String   @db.VarChar(100)
+  lastError      String?  @db.Text
+
+  status         DeadLetterStatus @default(PENDING)
+
+  metadata       Json?
+
+  created_at     DateTime @default(now())
+  resolved_at    DateTime?
+
+  notification Notification @relation(  fields: [notificationId], references: [id],onDelete: Restrict)
+
+  @@unique([notificationId])
+  @@index([appId, created_at])
+  @@index([eventId])
+  @@index([status, created_at])
 }
