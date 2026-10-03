@@ -1,16 +1,15 @@
-// this is basically used when the max attempt's of notification is reached and well hmm
-// Want to retry again
-// this is polling strategy pulling fetching the such events in intervals
-
 import prisma from "../DB/index.js";
+
 import { sendEvent, connectProducer } from "../kafka/producer.js";
 
 const RETRY_POLL_INTERVAL = 5_000;
 const RETRY_CLAIM_TIMEOUT = 60_000;
+const MAX_ATTEMPTS = 3;
 
-await connectProducer()
+await connectProducer();
 
 const processRetry = async () => {
+
     const now = new Date();
 
     const staleBefore = new Date(
@@ -18,6 +17,7 @@ const processRetry = async () => {
     );
 
     const attempt = await prisma.deliveryAttempt.findFirst({
+
         where: {
             status: "FAILED",
 
@@ -37,9 +37,13 @@ const processRetry = async () => {
             ]
         },
 
-          include: {
-        notification: true
-    },
+        include: {
+            notification: {
+                include: {
+                    event: true
+                }
+            }
+        },
 
         orderBy: {
             nextRetryAt: "asc"
@@ -51,6 +55,7 @@ const processRetry = async () => {
     }
 
     const claimed = await prisma.deliveryAttempt.updateMany({
+
         where: {
             id: attempt.id,
 
@@ -81,40 +86,47 @@ const processRetry = async () => {
         return;
     }
 
+
+
+
+    // ==========================================
+    // NORMAL RETRY
+    // ==========================================
+
     const nextAttemptNumber =
         attempt.attemptNumber + 1;
 
-  const topic =
-    `naas-${attempt.notification.channelType.toLowerCase()}`;
+    const topic =
+        `naas-${attempt.notification.channelType.toLowerCase()}`;
 
     try {
-    
-    await sendEvent(
-    topic,
-    attempt.notificationId,
-    {
-        notificationId: attempt.notificationId,
-        attemptNumber: nextAttemptNumber
-    }
-);
 
-       await prisma.deliveryAttempt.update({
-        where: {
-            id: attempt.id
-        },
-        data: {
-            nextRetryAt: null,
-            retryClaimedAt: null
-        }
-    });
+        await sendEvent(
+            topic,
+            attempt.notificationId,
+            {
+                notificationId: attempt.notificationId,
+                attemptNumber: nextAttemptNumber
+            }
+        );
 
-    
+        await prisma.deliveryAttempt.update({
+            where: {
+                id: attempt.id
+            },
+
+            data: {
+                nextRetryAt: null,
+                retryClaimedAt: null
+            }
+        });
 
         console.log(
             `Retry #${nextAttemptNumber} published for notification ${attempt.notificationId}`
         );
 
     } catch (error) {
+
         console.error(
             `Failed to publish retry for notification ${attempt.notificationId}:`,
             error
@@ -132,26 +144,25 @@ const processRetry = async () => {
     }
 };
 
-  // So after every 5 sec interval 
 
+const startRetryScheduler = async () => {
 
-const startRetryScheduler = async() => {
+    setInterval(async () => {
 
-    setInterval(async() => {
-
-        try{
-
-            await processRetry()
-
-        }
-        catch(err){
-
-            console.error("Some error happende have a look: ", err)
+        try {
+            await processRetry();
         }
 
+        catch (err) {
+            console.error(
+                "Some error happened have a look: ",
+                err
+            );
+        }
 
-    } , RETRY_POLL_INTERVAL)
-}
+    }, RETRY_POLL_INTERVAL);
+};
+
 
 export {
     startRetryScheduler,

@@ -9,6 +9,7 @@ import {
 } from "../services/retry.services.js";
 
 import { deliverNotification } from "../services/notificationDelivery.services.js";
+import { moveNotificationToDLQ } from "../services/deadLetter.services.js";
 
 
 const processPushNotification = async ({
@@ -251,34 +252,27 @@ const processPushNotification = async ({
 
         } else {
 
-            await prisma.notification.update({
-                where: {
-                    id: notification.id
-                },
-                data: {
-                    status: "FAILED"
-                }
-            });
+    const permanentError = isPermanentError(error);
 
+    const reason = permanentError
+        ? "PERMANENT_ERROR"
+        : "MAX_RETRIES_EXCEEDED";
 
-            if (isPermanentError(error)) {
+    await moveNotificationToDLQ({
+        notification,
+        attemptCount: deliveryAttempt.attemptNumber,
+        reason,
+        lastError: error.message
+    });
 
-                console.log(
-                    "Permanent error detected. Retry skipped."
-                );
+    if (permanentError) {
+        console.log("Permanent error detected.");
+    } else {
+        console.log("Maximum attempts reached.");
+    }
 
-            } else {
-
-                console.log(
-                    "Maximum attempts reached."
-                );
-            }
-
-
-            console.log(
-                "Notification status: FAILED"
-            );
-        }
+    console.log("Notification moved to DLQ.");
+}
     }
 };
 

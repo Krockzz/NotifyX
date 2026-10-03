@@ -1,7 +1,9 @@
 import prisma from "../DB/index.js";
+import { moveNotificationToDLQ } from "../services/deadLetter.services.js";
 import { deliverNotification } from "../services/notificationDelivery.services.js";
 import {  shouldRetry,createRetryAttempt , isPermanentError } from "../services/retry.services.js";
 import { Prisma } from "@prisma/client";
+
 
 const processEmailNotification = async ({
   topic,
@@ -32,6 +34,11 @@ const processEmailNotification = async ({
     notification = await prisma.notification.findUnique({
       where: {
         id: notificationId
+      },
+
+      include: {
+
+        event: true
       }
     });
 
@@ -218,29 +225,29 @@ const processEmailNotification = async ({
         notification,
         currentAttempt: deliveryAttempt
     });
-} else {
-    await prisma.notification.update({
-        where: {
-            id: notification.id
-        },
-        data: {
-            status: "FAILED"
-        }
+
+    } else {
+
+    const permanentError = isPermanentError(error);
+
+    const reason = permanentError
+        ? "PERMANENT_ERROR"
+        : "MAX_RETRIES_EXCEEDED";
+
+    await moveNotificationToDLQ({
+        notification,
+        attemptCount: deliveryAttempt.attemptNumber,
+        reason,
+        lastError: error.message
     });
 
-    if (isPermanentError(error)) {
-        console.log(
-            "Permanent error detected. Retry skipped."
-        );
+    if (permanentError) {
+        console.log("Permanent error detected.");
     } else {
-        console.log(
-            "Maximum attempts reached."
-        );
+        console.log("Maximum attempts reached.");
     }
 
-    console.log(
-        "Notification status: FAILED"
-    );
+    console.log("Notification moved to DLQ.");
 }
 
 
