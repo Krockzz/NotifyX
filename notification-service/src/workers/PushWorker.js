@@ -46,6 +46,10 @@ const processPushNotification = async ({
             await prisma.notification.findUnique({
                 where: {
                     id: notificationId
+                },
+
+                include :{
+                    event: true
                 }
             });
 
