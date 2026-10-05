@@ -1,3 +1,5 @@
+import prisma from "../DB/index.js";
+
 const processDeadLetter = async ({
     topic,
     partition,
@@ -38,6 +40,29 @@ const processDeadLetter = async ({
         console.log("Error:", error);
 
         console.log("DLQ message processed successfully.");
+
+    // now find the corresponding dlq record
+
+    const deadLetter = await prisma.deadLetter.findUnique({
+
+        where:{
+            notificationId
+        }
+    })
+
+    if(!deadLetter){
+
+        console.log("NO such dlq record found in DB")
+        return
+    }
+
+    console.log("\nDLQ record found in database.");
+    console.log("DLQ ID:", deadLetter.id);
+    console.log("Status:", deadLetter.status);
+    console.log("Attempt Count:", deadLetter.attemptCount);
+    console.log("Reason:", deadLetter.reason);
+
+    console.log("\nDLQ message processed successfully.");
 
     } catch (error) {
 

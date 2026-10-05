@@ -8,8 +8,8 @@
     "consumer": "nodemon src/kafka/startConsumer.js",
     "Worker": "nodemon src/kafka/startGenericConsumer.js",
     "retryScheduler" : "nodemon src/Retry/startretryScheduler.js",
-    "Out" : "nodemon src/OutBox/startOutBoxPublisher.js",
-    "DLQ" : "nodemon src/kafka/dlq_consumer.js"
+    "Out" : "nodemon src/OutBox/startOutBoxPublisher.js"
+
   },
   "keywords": [],
   "author": "",
