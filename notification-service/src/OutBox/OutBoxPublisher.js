@@ -48,8 +48,6 @@ const recoverStaleOutboxEvents = async () => {
 };
 
 
-
-
 const claimOutBoxEvent = async () => {
 
     const claimEvent = await prisma.$transaction(
