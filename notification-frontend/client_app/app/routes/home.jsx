@@ -7,6 +7,7 @@ import Footer from "../components/landing/Footer.jsx";
 import Hero from "../components/landing/Hero.jsx";
 import Navigation from "../components/landing/Navigation.jsx";
 import WorkflowSection from "../components/landing/WorkflowSection.jsx";
+import useScrollReveal from "../hooks/useScrollReveal.js";
 
 export function meta() {
   return [
@@ -22,6 +23,7 @@ export function meta() {
 
 export default function Home() {
   const [theme, setTheme] = useState("dark");
+  const landingRef = useScrollReveal();
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("notifyx-theme");
@@ -34,7 +36,7 @@ export default function Home() {
   }, [theme]);
 
   return (
-    <>
+    <div className="landing-page" ref={landingRef}>
       <Navigation theme={theme} onToggleTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} />
       <main>
         <Hero />
@@ -45,6 +47,6 @@ export default function Home() {
         <FinalCallToAction />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

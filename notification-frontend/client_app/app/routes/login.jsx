@@ -2,13 +2,75 @@ import { LockKeyhole, Mail } from "lucide-react";
 import Brand from "../components/landing/Brand.jsx";
 import LoginForm from "../components/login/LoginForm.jsx";
 import LoginVisual from "../components/login/LoginVisual.jsx";
-import { Link } from "react-router";
+import { Link, redirect } from "react-router";
 
 export function meta() {
   return [
     { title: "Sign in to NotifyX" },
     { name: "description", content: "Sign in to your NotifyX notification workspace." },
   ];
+}
+
+const API_URI = import.meta.env.API_URL
+console.log(API_URI)
+
+export async function action({request}){
+
+  const data = await request.formData();
+  const email = data.get("email");
+  const password = data.get("password");
+
+  if (!email || !password) {
+    return json({ error: "Email or password is missing" }, { status: 400 });
+  }
+
+  try{
+
+    const res = await fetch(`${API_URI}/api/v1/users/login` , {
+
+       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }), 
+    });
+
+     if (!res.ok) {
+      const errorData = await res.json();
+      return json(
+        { error: errorData.message || "Login Failed!" },
+        { status: errorData.status || 500 }
+      );
+    }
+
+    const cookies = res.headers.get("Set-Cookie");
+
+    return redirect("/dashboard" , 
+
+      {
+
+        headers: {
+
+          "Set-Cookie" : cookies
+        }
+      }
+
+    )
+
+
+  }
+
+  catch(err){
+
+    return json(
+      { error: "Something went wrong. Please try again.", details: err.message },
+      { status: 500 }
+    );
+
+
+  }
+
+
+
 }
 
 export default function Login() {
