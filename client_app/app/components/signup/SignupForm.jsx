@@ -92,16 +92,16 @@ export default function SignupForm({ actionData }) {
         noValidate
       >
         <div className="signup-field">
-          <label htmlFor="fullName">Full name</label>
+          <label htmlFor="UserName">Full name</label>
 
           <div
             className={`signup-input-wrap${
-              allErrors.fullName ? " has-error" : ""
+              allErrors.UserName ? " has-error" : ""
             }`}
           >
             <UserRound size={16} aria-hidden="true" />
             <input
-              {...fieldProps("fullName", "Full name")}
+              {...fieldProps("UserName", "Full name")}
               type="text"
               placeholder="Alex Morgan"
               autoComplete="name"
@@ -109,9 +109,9 @@ export default function SignupForm({ actionData }) {
             />
           </div>
 
-          {allErrors.fullName && (
+          {allErrors.UserName && (
             <p className="signup-field-error" id="fullName-error" role="alert">
-              {allErrors.fullName}
+              {allErrors.UserName}
             </p>
           )}
         </div>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Eye,
@@ -7,11 +6,10 @@ import {
   Mail,
   UserRound,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, data, redirect } from "react-router";
 
 import Brand from "../components/landing/Brand.jsx";
 import SignupVisual from "../components/signup/SignupVisual.jsx";
-import GoogleMark from "../components/signup/GoogleMark.jsx";
 
 import { validateSignup } from "../utils/signupValidation.js";
 import { initialSignupValues } from "../utils/signupConstants.js";
@@ -26,6 +24,69 @@ export function meta() {
         "Create a NotifyX account to start building and managing your notification infrastructure.",
     },
   ];
+}
+
+// Use Vite's import.meta.env or fallback appropriately
+const API_URI = process.env.API_URL;
+console.log(API_URI)
+
+export async function action({ request }) {
+  const info = await request.formData();
+  const UserName = info.get("UserName");
+  const email = info.get("email");
+  const password = info.get("password");
+
+  if (!UserName || !email || !password) {
+    return data({ error: "Please provide all the fields" }, { status: 400 });
+  }
+
+  if (password.length < 6) {
+    return data({ error: "Password should be at least 6 characters" }, { status: 400 });
+  }
+
+  try {
+    const registerRes = await fetch(`${API_URI}/api/v1/users/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ UserName, email, password }),
+    });
+
+    if (!registerRes.ok) {
+      // FIX: Use .json() instead of .data()
+      const errorData = await registerRes.json();
+      return data({
+        error: errorData.message || "Registration Failed",
+        statusCode: errorData.status || 400,
+      });
+    }
+
+    const loginRes = await fetch(`${API_URI}/api/v1/users/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!loginRes.ok) {
+      // FIX: Use .json() instead of .data()
+      const loginError = await loginRes.json();
+      return data({
+        error: loginError.message || "Login after registration failed",
+        statusCode: loginError.status || 500,
+      });
+    }
+
+    return redirect("/dashboard");
+  } catch (error) {
+    console.error("REGISTRATION ERROR:", error);
+    return data(
+      {
+        error: "Something went wrong. Please try again.",
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export default function Signup() {
@@ -127,8 +188,7 @@ export default function Signup() {
             </p>
           </div>
 
-
-          <SignupForm/>
+          <SignupForm />
 
           <p className="signup-signin">
             Already have an account?{" "}
