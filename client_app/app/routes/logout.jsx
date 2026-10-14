@@ -28,7 +28,7 @@ export async function action({ request }) {
     // Get Set-Cookie headers from backend response
     const setCookieHeaders = res.headers.get("set-cookie");
 
-    return redirect("/", {
+    return redirect("/login", {
       headers: {
         "Cache-Control": "no-store",
         ...(setCookieHeaders && { "Set-Cookie": setCookieHeaders }),

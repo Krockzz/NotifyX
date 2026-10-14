@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Box, Plus, X } from "lucide-react";
-import { data, redirect, useFetcher, useLoaderData } from "react-router";
+import { Activity, Box, Check, CircleAlert, Plus, TrendingUp, X } from "lucide-react";
+import { data, redirect, useFetcher, useLoaderData, useRevalidator } from "react-router";
 import DashboardNavbar from "../components/dashboard/DashboardNavbar.jsx";
+import MetricCard from "../components/dashboard/MetricCard.jsx";
+import ApplicationCard from "../components/dashboard/ApplicationCard.jsx";
 
 const API_URI = import.meta.env.VITE_API_URL;
 
@@ -72,35 +74,48 @@ export async function action({ request }) {
   }
 }
 
-function formatCreatedDate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
-
-function ApplicationCard({ application }) {
-  const createdDate = formatCreatedDate(application.created_at);
-  return (
-    <article className="workspace-app-card">
-      <span className="workspace-app-icon" aria-hidden="true"><Box size={19} strokeWidth={1.8} /></span>
-      <span className="workspace-app-details">
-        <strong>{application.appName}</strong>
-        {createdDate && <small>Created {createdDate}</small>}
-      </span>
-      <ArrowRight className="workspace-app-arrow" size={17} aria-hidden="true" />
-    </article>
-  );
-}
+const sampleMetrics = [
+  {
+    label: "Total messages sent",
+    value: "12,480",
+    detail: <><TrendingUp size={14} className="text-emerald-300" aria-hidden="true" /><span>+12% from last week</span></>,
+    icon: Activity,
+    tone: "violet",
+  },
+  {
+    label: "Success rate",
+    value: "99.94%",
+    detail: <><Check size={14} className="text-emerald-300" aria-hidden="true" /><span>Healthy delivery rate</span></>,
+    icon: Check,
+    tone: "green",
+  },
+  {
+    label: "Error rate",
+    value: "0.06%",
+    detail: <><CircleAlert size={14} className="text-amber-300" aria-hidden="true" /><span>Within expected range</span></>,
+    icon: CircleAlert,
+    tone: "amber",
+  },
+];
 
 export default function Dashboard() {
   const { info, user } = useLoaderData();
   const fetcher = useFetcher();
+  const revalidator = useRevalidator();
   const dialogRef = useRef(null);
   const formRef = useRef(null);
   const [nameError, setNameError] = useState("");
+  const [deletedApplicationIds, setDeletedApplicationIds] = useState([]);
   const applications = Array.isArray(info?.data) ? info.data : [];
+  const visibleApplications = applications.filter((application) => !deletedApplicationIds.includes(application.id));
   const isSubmitting = fetcher.state !== "idle";
+
+  function handleApplicationChanged({ id, type }) {
+    if (type === "delete") {
+      setDeletedApplicationIds((current) => [...current, id]);
+    }
+    revalidator.revalidate();
+  }
 
   useEffect(() => {
     if (fetcher.data?.created) {
@@ -169,28 +184,55 @@ export default function Dashboard() {
         </g>
       </svg>
       <DashboardNavbar user={user} />
-      <main className="workspace-content">
-        <header className="workspace-heading">
+      <main id="overview" className="relative mx-auto w-full max-w-7xl px-4 pb-16 pt-9 sm:px-6 sm:pt-11 lg:px-8">
+        <header className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>
-            <h1>Your applications</h1>
-            <p>Manage the applications connected to your notification infrastructure.</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-300/80">Workspace overview</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-100">Your applications</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Manage the applications connected to your notification infrastructure.
+            </p>
           </div>
-          <button className="workspace-create-button" type="button" onClick={openDialog}>
+          <button
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-500 px-4 text-sm font-medium text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            type="button"
+            onClick={openDialog}
+          >
             <Plus size={16} aria-hidden="true" /> Create application
           </button>
         </header>
 
-        {applications.length === 0 ? (
-          <section className="workspace-empty" aria-labelledby="workspace-empty-title">
-            <span className="workspace-empty-icon" aria-hidden="true"><Box size={22} strokeWidth={1.7} /></span>
-            <h2 id="workspace-empty-title">No applications yet</h2>
-            <p>Create your first application to start integrating NotifyX.</p>
+        <section aria-label="Sample delivery metrics" className="mb-10">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium text-slate-200">Delivery overview</h2>
+            <span className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[10px] font-medium text-slate-500">Sample data</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sampleMetrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
+          </div>
+        </section>
+
+        {visibleApplications.length === 0 ? (
+          <section id="applications" aria-labelledby="workspace-empty-title" className="grid min-h-72 place-items-center rounded-xl border border-dashed border-white/[0.12] bg-[#10121d]/55 px-6 text-center">
+            <div className="max-w-sm">
+              <span className="mx-auto grid size-12 place-items-center rounded-xl border border-violet-300/15 bg-violet-400/[0.07] text-violet-200">
+                <Box size={21} aria-hidden="true" />
+              </span>
+              <h2 id="workspace-empty-title" className="mt-4 text-lg font-medium text-slate-100">No applications yet</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Create your first application to start integrating NotifyX.</p>
+            </div>
           </section>
         ) : (
-          <section className="workspace-applications" aria-label="Your applications">
-            {applications.map((application) => (
-              <ApplicationCard key={application.id} application={application} />
-            ))}
+          <section id="applications" aria-label="Your applications">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-slate-200">Applications</h2>
+              <span className="text-xs text-slate-500">{visibleApplications.length} total</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleApplications.map((application) => (
+                <ApplicationCard key={application.id} application={application} onChanged={handleApplicationChanged} />
+              ))}
+            </div>
           </section>
         )}
       </main>
