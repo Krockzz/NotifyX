@@ -207,6 +207,8 @@ const LoginUser = asyncHandler(async (req , res) => {
 
 const logoutUser = asyncHandler(async (req, res) => {
 
+    await new Promise (res => setTimeout(res, 5000))
+
     if (!req.user || !req.user.id) {
         return res
             .status(400)

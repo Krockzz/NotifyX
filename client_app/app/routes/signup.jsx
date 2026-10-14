@@ -92,7 +92,13 @@ export async function action({ request }) {
       }
     }
 
-    return redirect("/dashboard");
+    const headers = new Headers();
+    const cookies = typeof loginRes.headers.getSetCookie === "function"
+      ? loginRes.headers.getSetCookie()
+      : [loginRes.headers.get("Set-Cookie")].filter(Boolean);
+    for (const cookie of cookies) headers.append("Set-Cookie", cookie);
+
+    return redirect("/dashboard", { headers });
   } catch (error) {
     console.error("REGISTRATION ERROR:", error);
     return data(

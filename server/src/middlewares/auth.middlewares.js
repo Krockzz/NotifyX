@@ -38,7 +38,7 @@ export const verifyJwt = asyncHandler(async (req , res , next) => {
     const user = await prisma.user.findFirst({
 
         where: {
-            id : decodedToken?._id
+            id : decodedToken?.id
         }
     })
 

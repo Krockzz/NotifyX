@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import {connectProducer} from "../src/kafka/producer.js"
+import {connectProducer} from "./kafka/producer.js"
 import { app } from "./app.js";
 
 

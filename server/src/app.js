@@ -1,12 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
-import router1 from "../src/routers/User.router.js"
-import router2 from "../src/routers/application.router.js"
-import router3 from "../src/routers/eventType.routers.js"
-import router4 from "../src/routers/EventTypeChannel.routers.js"
-import router5 from "../src/routers/Template.routers.js"
-import router6 from "../src/routers/Event.routers.js"
+import router1 from "./routers/User.router.js"
+import router2 from "./routers/application.router.js"
+import router3 from "./routers/eventType.routers.js"
+import router4 from "./routers/EventTypeChannel.routers.js"
+import router5 from "./routers/Template.routers.js"
+import router6 from "./routers/Event.routers.js"
 
 const app = express() // and instance of express server
 

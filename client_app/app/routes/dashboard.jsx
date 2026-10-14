@@ -5,22 +5,25 @@ import DashboardNavbar from "../components/dashboard/DashboardNavbar.jsx";
 
 const API_URI = import.meta.env.VITE_API_URL;
 
-function getEmailFromValidatedCookie(cookieHeader) {
+function getUserFromValidatedCookie(cookieHeader) {
   const token = cookieHeader
     .split(";")
     .map((cookie) => cookie.trim())
     .find((cookie) => cookie.startsWith("accessToken="))
     ?.slice("accessToken=".length);
 
-  if (!token) return "";
+  if (!token) return null;
 
   try {
     const payload = token.split(".")[1];
     if (!payload) return "";
     const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return typeof claims.email === "string" ? claims.email : "";
+    return {
+      name: typeof claims.UserName === "string" ? claims.UserName : "",
+      email: typeof claims.email === "string" ? claims.email : "",
+    };
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -33,11 +36,14 @@ export async function loader({ request }) {
   });
 
   if ([400, 401, 403].includes(res.status) || !res.ok) return redirect("/login");
-  return data({ info: await res.json(), email: getEmailFromValidatedCookie(cookieHeader) });
+
+  const info = await res.json();
+  return data({ info, user: getUserFromValidatedCookie(cookieHeader) });
 }
 
 export async function action({ request }) {
   const formData = await request.formData();
+
   const appName = String(formData.get("appName") ?? "").trim();
 
   if (!appName) return data({ error: "Enter an application name." }, { status: 400 });
@@ -88,7 +94,7 @@ function ApplicationCard({ application }) {
 }
 
 export default function Dashboard() {
-  const { info, email = "" } = useLoaderData();
+  const { info, user } = useLoaderData();
   const fetcher = useFetcher();
   const dialogRef = useRef(null);
   const formRef = useRef(null);
@@ -162,7 +168,7 @@ export default function Dashboard() {
           <circle cx="417" cy="882" r="4.5" />
         </g>
       </svg>
-      <DashboardNavbar email={email} />
+      <DashboardNavbar user={user} />
       <main className="workspace-content">
         <header className="workspace-heading">
           <div>

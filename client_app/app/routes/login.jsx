@@ -61,13 +61,11 @@ export async function action({ request }) {
       );
     }
 
-    // Forward the session cookie if the backend sets one.
-    const cookies = res.headers.get("Set-Cookie");
     const headers = new Headers();
-
-    if (cookies) {
-      headers.append("Set-Cookie", cookies);
-    }
+    const cookies = typeof res.headers.getSetCookie === "function"
+      ? res.headers.getSetCookie()
+      : [res.headers.get("Set-Cookie")].filter(Boolean);
+    for (const cookie of cookies) headers.append("Set-Cookie", cookie);
 
     return redirect("/dashboard", { headers });
   } catch (err) {
