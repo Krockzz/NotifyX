@@ -1,4 +1,3 @@
-
 import { Link } from "react-router";
 import { ArrowUpRight, Menu, Moon, Sun } from "lucide-react";
 import Brand from "./Brand.jsx";
@@ -45,7 +44,7 @@ export default function Navigation({ theme, onToggleTheme }) {
             className="button button-small button-primary"
             to="/signup"
           >
-            Get started <ArrowUpRight size={14} />
+            Signup Now <ArrowUpRight size={14} />
           </Link>
         </div>
 

@@ -6,7 +6,8 @@ import {
   Mail,
   UserRound,
 } from "lucide-react";
-import { Link, data, redirect } from "react-router";
+// Unified react-router imports for v7
+import { Link, data, redirect, Form, useActionData, useNavigation } from "react-router";
 
 import Brand from "../components/landing/Brand.jsx";
 import SignupVisual from "../components/signup/SignupVisual.jsx";
@@ -26,12 +27,12 @@ export function meta() {
   ];
 }
 
-// Use Vite's import.meta.env or fallback appropriately
-const API_URI = process.env.API_URL;
-console.log(API_URI)
+const API_URI = import.meta.env.VITE_API_URL;
+console.log("API Destination URI:", API_URI);
 
 export async function action({ request }) {
   const info = await request.formData();
+  // Ensure these match the 'name' attributes on the native HTML inputs inside <SignupForm />
   const UserName = info.get("UserName");
   const email = info.get("email");
   const password = info.get("password");
@@ -51,13 +52,21 @@ export async function action({ request }) {
       body: JSON.stringify({ UserName, email, password }),
     });
 
+    // Safeguard against HTML error pages (Unexpected token '<')
     if (!registerRes.ok) {
-      // FIX: Use .json() instead of .data()
-      const errorData = await registerRes.json();
-      return data({
-        error: errorData.message || "Registration Failed",
-        statusCode: errorData.status || 400,
-      });
+      const contentType = registerRes.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await registerRes.json();
+        return data({
+          error: errorData.message || "Registration Failed",
+          statusCode: registerRes.status,
+        }, { status: registerRes.status });
+      } else {
+        return data({
+          error: `Server endpoint not found (${registerRes.status}). Verify your registration backend route configuration.`,
+          statusCode: registerRes.status,
+        }, { status: registerRes.status });
+      }
     }
 
     const loginRes = await fetch(`${API_URI}/api/v1/users/login`, {
@@ -68,12 +77,19 @@ export async function action({ request }) {
     });
 
     if (!loginRes.ok) {
-      // FIX: Use .json() instead of .data()
-      const loginError = await loginRes.json();
-      return data({
-        error: loginError.message || "Login after registration failed",
-        statusCode: loginError.status || 500,
-      });
+      const contentType = loginRes.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const loginError = await loginRes.json();
+        return data({
+          error: loginError.message || "Login after registration failed",
+          statusCode: loginRes.status,
+        }, { status: loginRes.status });
+      } else {
+        return data({
+          error: `Login fallback endpoint error (${loginRes.status}). Account created but session generation failed.`,
+          statusCode: loginRes.status,
+        }, { status: loginRes.status });
+      }
     }
 
     return redirect("/dashboard");
@@ -81,7 +97,7 @@ export async function action({ request }) {
     console.error("REGISTRATION ERROR:", error);
     return data(
       {
-        error: "Something went wrong. Please try again.",
+        error: "Network error. Could not connect to the backend server.",
         details: error.message,
       },
       { status: 500 }
@@ -90,6 +106,10 @@ export async function action({ request }) {
 }
 
 export default function Signup() {
+  const actionData = useActionData();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
   const [values, setValues] = useState(initialSignupValues);
   const [errors, setErrors] = useState({});
   const [attempted, setAttempted] = useState(false);
@@ -113,21 +133,17 @@ export default function Signup() {
     }
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
+  // Pre-validate inputs client-side before letting React Router submit the form data
+  function handleClientSubmit(event) {
     setAttempted(true);
 
     const nextErrors = validateSignup(values);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
+      event.preventDefault(); // Stop execution here if validation fails locally
       setNotice("Check the highlighted fields and try again.");
-      return;
     }
-
-    setNotice(
-      "Your details are valid. Account creation is not connected yet."
-    );
   }
 
   function fieldProps(name, label) {
@@ -188,7 +204,27 @@ export default function Signup() {
             </p>
           </div>
 
-          <SignupForm />
+          {/* Clean UI feedback layout area for server error data maps */}
+          {(actionData?.error || notice) && (
+            <div className="form-alert-message" style={{ color: "#ff5252", padding: "0.5rem 0", fontSize: "0.9rem" }}>
+              {actionData?.error || notice}
+            </div>
+          )}
+
+          {/* Wrap your fields inside React Router v7's submission engine wrapper */}
+          <Form method="post" onSubmit={handleClientSubmit}>
+            <SignupForm 
+              values={values} 
+              errors={errors} 
+              updateValue={updateValue}
+              fieldProps={fieldProps}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              showConfirmPassword={showConfirmPassword}
+              setShowConfirmPassword={setShowConfirmPassword}
+              isSubmitting={isSubmitting}
+            />
+          </Form>
 
           <p className="signup-signin">
             Already have an account?{" "}

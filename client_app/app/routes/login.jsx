@@ -16,7 +16,7 @@ export function meta() {
   ];
 }
 
-const API_URI = process.env.API_URL;
+const API_URI = import.meta.env.VITE_API_URL;
 console.log(API_URI)
 
 export async function action({ request }) {
