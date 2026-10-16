@@ -1,5 +1,6 @@
 
 import { useEffect, useId, useRef, useState } from "react";
+
 import {
   ArrowRight,
   Box,
@@ -10,7 +11,8 @@ import {
   X,
   CircleAlert,
 } from "lucide-react";
-import { useSubmit, useNavigation } from "react-router";
+
+import { Form, useNavigation } from "react-router";
 
 function formatCreatedDate(value) {
   if (!value) return null;
@@ -33,7 +35,6 @@ export default function ApplicationCard({ application, onChanged }) {
   const dialogRef = useRef(null);
   const inputRef = useRef(null);
 
-  const submit = useSubmit();
   const navigation = useNavigation();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -47,7 +48,7 @@ export default function ApplicationCard({ application, onChanged }) {
 
   const isSubmitting =
     navigation.state !== "idle" &&
-    navigation.formData?.get("appId") === appId;
+    navigation.formData?.get("appId") === String(appId);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -104,42 +105,21 @@ export default function ApplicationCard({ application, onChanged }) {
   }
 
   function handleConfirm(event) {
-    event.preventDefault();
     setError("");
 
-    if (isSubmitting) return;
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
 
     if (dialogMode === "update") {
       const trimmedName = appName.trim();
 
       if (!trimmedName) {
+        event.preventDefault();
         setError("Application name is required.");
         inputRef.current?.focus();
-        return;
       }
-
-      const formData = new FormData();
-      formData.append("intent", "update-application");
-      formData.append("appId", appId);
-      formData.append("appName", trimmedName);
-
-      submit(formData, {
-        method: "post",
-        action: "/dashboard",
-      });
-
-      return;
-    }
-
-    if (dialogMode === "delete") {
-      const formData = new FormData();
-      formData.append("intent", "delete-application");
-      formData.append("appId", appId);
-
-      submit(formData, {
-        method: "post",
-        action: "/dashboard",
-      });
     }
   }
 
@@ -147,27 +127,6 @@ export default function ApplicationCard({ application, onChanged }) {
     setDialogMode(null);
     setError("");
   }
-
-  useEffect(() => {
-    // The dashboard action should return an error when a request fails.
-    // Successful updates/deletions should redirect or revalidate dashboard data.
-    if (navigation.state === "idle" && navigation.formData) {
-      const intent = navigation.formData.get("intent");
-
-      if (
-        intent === "delete-application" ||
-        intent === "update-application"
-      ) {
-        setDialogMode(null);
-        setError("");
-        onChanged?.({
-          id: appId,
-          type:
-            intent === "delete-application" ? "delete" : "update",
-        });
-      }
-    }
-  }, [navigation.state, navigation.formData, appId, onChanged]);
 
   return (
     <>
@@ -280,7 +239,28 @@ export default function ApplicationCard({ application, onChanged }) {
         aria-labelledby={`application-dialog-title-${appId}`}
         className="m-auto w-[min(100%-2rem,440px)] rounded-2xl border border-white/10 bg-[#11131e] p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
       >
-        <form onSubmit={handleConfirm} className="p-5 sm:p-6">
+        <Form
+          method="post"
+          action={
+            dialogMode === "delete"
+              ? `/dashboard/delete/${encodeURIComponent(appId)}`
+              : "/dashboard"
+          }
+          onSubmit={handleConfirm}
+          className="p-5 sm:p-6"
+        >
+          <input type="hidden" name="appId" value={appId} />
+
+          <input
+            type="hidden"
+            name="intent"
+            value={
+              dialogMode === "delete"
+                ? "delete-application"
+                : "update-application"
+            }
+          />
+
           <div className="flex items-start gap-3">
             <span
               className={`grid size-10 shrink-0 place-items-center rounded-xl border ${
@@ -344,6 +324,7 @@ export default function ApplicationCard({ application, onChanged }) {
               <input
                 ref={inputRef}
                 id={`application-name-${appId}`}
+                name="appName"
                 value={appName}
                 onChange={(event) => {
                   setAppName(event.target.value);
@@ -394,7 +375,7 @@ export default function ApplicationCard({ application, onChanged }) {
                   : "Save changes"}
             </button>
           </div>
-        </form>
+        </Form>
       </dialog>
     </>
   );
