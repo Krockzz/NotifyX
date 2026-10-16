@@ -92,7 +92,7 @@ const sampleMetrics = [
   {
     label: "Error rate",
     value: "0.06%",
-    detail: <><CircleAlert size={14} className="text-amber-300" aria-hidden="true" /><span>Within expected range</span></>,
+    detail: <><CircleAlert size={14} className="text-rose-300" aria-hidden="true" /><span>Within expected range</span></>,
     icon: CircleAlert,
     tone: "amber",
   },
@@ -155,9 +155,9 @@ export default function Dashboard() {
       >
         <defs>
           <linearGradient id="workspace-network-stroke" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#6bb3c4" />
-            <stop offset="55%" stopColor="#777ab6" />
-            <stop offset="100%" stopColor="#a879d4" />
+            <stop offset="0%" stopColor="var(--color-queued)" />
+            <stop offset="55%" stopColor="var(--color-primary-accent)" />
+            <stop offset="100%" stopColor="var(--color-hover-accent)" />
           </linearGradient>
         </defs>
         <g fill="none" stroke="url(#workspace-network-stroke)" strokeWidth="1.4" opacity=".52">
@@ -165,7 +165,7 @@ export default function Dashboard() {
           <path d="M52 684 142 636 217 671 299 586 390 632 486 574 604 624M52 684 39 786 135 824 217 671 205 792 297 855 299 586 390 632 420 746 486 574 517 690 604 624 595 788M39 786 135 824 205 792 297 855 355 777 420 746 517 690 595 788 604 624M135 824 172 886 297 855 355 777 417 882 517 690 556 829 595 788M172 886 297 855 417 882 556 829 624 899" />
           <path d="M421 211 385 351 297 396 355 477 385 351 532 395 487 306M297 396 241 470 355 477 420 746 355 777M532 395 609 472 517 690 556 829" />
         </g>
-        <g fill="#78bfd0" opacity=".72">
+        <g fill="var(--color-queued)" opacity=".72">
           <circle cx="56" cy="72" r="4" /><circle cx="146" cy="96" r="4.5" /><circle cx="235" cy="48" r="4" />
           <circle cx="323" cy="84" r="4.5" /><circle cx="403" cy="23" r="4" /><circle cx="498" cy="61" r="4.5" />
           <circle cx="112" cy="190" r="4" /><circle cx="151" cy="204" r="4.5" /><circle cx="208" cy="232" r="4" />
@@ -177,7 +177,7 @@ export default function Dashboard() {
           <circle cx="205" cy="792" r="4" /><circle cx="297" cy="855" r="4.5" /><circle cx="420" cy="746" r="4" />
           <circle cx="517" cy="690" r="4.5" /><circle cx="595" cy="788" r="4" />
         </g>
-        <g fill="#ad82dc" opacity=".78">
+        <g fill="var(--color-primary-accent)" opacity=".78">
           <circle cx="176" cy="313" r="4.5" /><circle cx="385" cy="351" r="4.5" /><circle cx="355" cy="477" r="4" />
           <circle cx="299" cy="586" r="4" /><circle cx="420" cy="746" r="4.5" /><circle cx="355" cy="777" r="4" />
           <circle cx="417" cy="882" r="4.5" />
@@ -205,7 +205,7 @@ export default function Dashboard() {
         <section aria-label="Sample delivery metrics" className="mb-10">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-slate-200">Delivery overview</h2>
-            <span className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[10px] font-medium text-slate-500">Sample data</span>
+            <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium text-slate-500">Sample data</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {sampleMetrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
@@ -213,9 +213,9 @@ export default function Dashboard() {
         </section>
 
         {visibleApplications.length === 0 ? (
-          <section id="applications" aria-labelledby="workspace-empty-title" className="grid min-h-72 place-items-center rounded-xl border border-dashed border-white/[0.12] bg-[#10121d]/55 px-6 text-center">
+          <section id="applications" aria-labelledby="workspace-empty-title" className="grid min-h-72 place-items-center rounded-xl border border-dashed border-border bg-surface-1/70 px-6 text-center">
             <div className="max-w-sm">
-              <span className="mx-auto grid size-12 place-items-center rounded-xl border border-violet-300/15 bg-violet-400/[0.07] text-violet-200">
+              <span className="mx-auto grid size-12 place-items-center rounded-xl border border-border bg-surface-2 text-slate-400">
                 <Box size={21} aria-hidden="true" />
               </span>
               <h2 id="workspace-empty-title" className="mt-4 text-lg font-medium text-slate-100">No applications yet</h2>
@@ -230,7 +230,7 @@ export default function Dashboard() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {visibleApplications.map((application) => (
-                <ApplicationCard key={application.id} application={application} onChanged={handleApplicationChanged} />
+                <ApplicationCard key={application.id} application={application} onChanged={handleApplicationChanged} user={user} />
               ))}
             </div>
           </section>

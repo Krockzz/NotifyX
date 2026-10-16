@@ -26,7 +26,7 @@ export function Layout({ children }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#090a12" />
+        <meta name="theme-color" content="#0B0B0E" />
         <Meta />
         <Links />
       </head>

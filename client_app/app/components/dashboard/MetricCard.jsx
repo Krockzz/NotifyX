@@ -1,12 +1,12 @@
 export default function MetricCard({ label, value, detail, icon: Icon, tone = "violet" }) {
   const tones = {
     violet: "border-violet-300/15 bg-violet-300/[0.06] text-violet-200",
-    green: "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300",
-    amber: "border-amber-300/15 bg-amber-300/[0.06] text-amber-300",
+    green: "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-300",
+    amber: "border-rose-300/20 bg-rose-300/[0.08] text-rose-300",
   };
 
   return (
-    <article className="rounded-xl border border-white/[0.08] bg-[#10121d]/80 p-5 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-colors duration-200 hover:border-white/[0.15]">
+    <article className="rounded-xl border border-border bg-surface-1 p-5 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-colors duration-200 hover:border-violet-300/35">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm text-slate-400">{label}</p>

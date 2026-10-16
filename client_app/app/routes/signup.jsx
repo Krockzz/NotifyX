@@ -212,7 +212,7 @@ export default function Signup() {
 
           {/* Clean UI feedback layout area for server error data maps */}
           {(actionData?.error || notice) && (
-            <div className="form-alert-message" style={{ color: "#ff5252", padding: "0.5rem 0", fontSize: "0.9rem" }}>
+            <div className="form-alert-message" role="alert">
               {actionData?.error || notice}
             </div>
           )}

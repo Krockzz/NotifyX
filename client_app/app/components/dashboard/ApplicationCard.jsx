@@ -12,7 +12,7 @@ import {
   CircleAlert,
 } from "lucide-react";
 
-import { Form, useNavigation } from "react-router";
+import { Form, Link, useNavigation } from "react-router";
 
 function formatCreatedDate(value) {
   if (!value) return null;
@@ -28,7 +28,7 @@ function formatCreatedDate(value) {
   }).format(date);
 }
 
-export default function ApplicationCard({ application, onChanged }) {
+export default function ApplicationCard({ application, onChanged, user }) {
   const menuId = useId();
   const menuRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -130,23 +130,29 @@ export default function ApplicationCard({ application, onChanged }) {
 
   return (
     <>
-      <article className="group relative flex min-h-[118px] min-w-0 items-start gap-3 rounded-xl border border-white/[0.08] bg-[#10121d]/85 p-4 pr-14 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/20 hover:bg-[#131522] sm:p-5 sm:pr-14">
-        <span
-          className="grid size-10 shrink-0 place-items-center rounded-lg border border-violet-300/15 bg-violet-300/[0.07] text-violet-200"
-          aria-hidden="true"
+      <article className="group relative flex min-h-[118px] min-w-0 items-start gap-3 rounded-xl border border-border bg-surface-1 p-4 pr-14 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/40 hover:bg-surface-2 sm:p-5 sm:pr-14">
+        <Link
+          to={`/dashboard/${encodeURIComponent(appId)}`}
+          state={{ application, user }}
+          aria-label={`Open ${application.appName}`}
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
         >
-          <Box size={19} strokeWidth={1.8} />
-        </span>
-
-        <span className="grid min-w-0 flex-1 gap-2 pt-0.5">
-          <strong
-            className="truncate text-sm font-medium text-slate-100"
-            title={application.appName}
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface-2 text-slate-400"
+            aria-hidden="true"
           >
-            {application.appName}
-          </strong>
+            <Box size={19} strokeWidth={1.8} />
+          </span>
 
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="grid min-w-0 flex-1 gap-2 pt-0.5">
+            <strong
+              className="truncate text-sm font-medium text-slate-100"
+              title={application.appName}
+            >
+              {application.appName}
+            </strong>
+
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                 isActive
@@ -168,17 +174,24 @@ export default function ApplicationCard({ application, onChanged }) {
                 Created {createdDate}
               </small>
             )}
+            </span>
+
+            <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+              <Check
+                size={12}
+                className={isActive ? "text-emerald-300/80" : "text-slate-500"}
+                aria-hidden="true"
+              />
+              {isActive ? "Delivery enabled" : "Delivery paused"}
+            </span>
           </span>
 
-          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-            <Check
-              size={12}
-              className={isActive ? "text-emerald-300/80" : "text-slate-500"}
-              aria-hidden="true"
-            />
-            {isActive ? "Delivery enabled" : "Delivery paused"}
-          </span>
-        </span>
+          <ArrowRight
+            className="mt-1 shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-violet-200"
+            size={16}
+            aria-hidden="true"
+          />
+        </Link>
 
         <button
           ref={menuButtonRef}
@@ -188,7 +201,7 @@ export default function ApplicationCard({ application, onChanged }) {
           aria-expanded={menuOpen}
           aria-controls={menuOpen ? menuId : undefined}
           onClick={() => setMenuOpen((open) => !open)}
-          className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-white/[0.07] hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+          className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-surface-2/85 hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
         >
           <MoreVertical size={18} aria-hidden="true" />
         </button>
@@ -199,13 +212,13 @@ export default function ApplicationCard({ application, onChanged }) {
             id={menuId}
             role="menu"
             aria-label={`${application.appName} actions`}
-            className="absolute right-3 top-12 z-20 w-40 rounded-lg border border-white/10 bg-[#11131e] p-1.5 shadow-xl shadow-black/40"
+            className="absolute right-3 top-12 z-20 w-40 rounded-lg border border-border bg-surface-2 p-1.5 shadow-xl shadow-black/40"
           >
             <button
               type="button"
               role="menuitem"
               onClick={() => openDialog("update")}
-              className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-slate-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+              className="flex min-h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs text-slate-300 transition-colors hover:bg-surface-2/80 hover:text-white"
             >
               <Pencil size={14} aria-hidden="true" />
               Update
@@ -223,11 +236,6 @@ export default function ApplicationCard({ application, onChanged }) {
           </div>
         )}
 
-        <ArrowRight
-          className="absolute bottom-4 right-4 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-violet-200"
-          size={16}
-          aria-hidden="true"
-        />
       </article>
 
       <dialog
@@ -237,7 +245,7 @@ export default function ApplicationCard({ application, onChanged }) {
           if (isSubmitting) event.preventDefault();
         }}
         aria-labelledby={`application-dialog-title-${appId}`}
-        className="m-auto w-[min(100%-2rem,440px)] rounded-2xl border border-white/10 bg-[#11131e] p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
+        className="m-auto w-[min(100%-2rem,440px)] rounded-2xl border border-border bg-surface-1 p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
       >
         <Form
           method="post"
@@ -298,7 +306,7 @@ export default function ApplicationCard({ application, onChanged }) {
               onClick={closeDialog}
               disabled={isSubmitting}
               aria-label="Close dialog"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-surface-2/80 hover:text-white disabled:opacity-50"
             >
               <X size={16} aria-hidden="true" />
             </button>
@@ -333,7 +341,7 @@ export default function ApplicationCard({ application, onChanged }) {
                 maxLength={50}
                 autoComplete="off"
                 disabled={isSubmitting}
-                className="min-h-10 w-full rounded-lg border border-white/10 bg-[#090b13] px-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/40 focus:ring-2 focus:ring-violet-300/10 disabled:opacity-60"
+                className="min-h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:opacity-60"
               />
             </div>
           )}
@@ -349,7 +357,7 @@ export default function ApplicationCard({ application, onChanged }) {
               type="button"
               onClick={closeDialog}
               disabled={isSubmitting}
-              className="min-h-10 rounded-lg border border-white/10 px-4 text-sm font-medium text-slate-300 transition hover:bg-white/[0.05] disabled:opacity-50"
+              className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-slate-300 transition hover:bg-surface-2/75 disabled:opacity-50"
             >
               Cancel
             </button>

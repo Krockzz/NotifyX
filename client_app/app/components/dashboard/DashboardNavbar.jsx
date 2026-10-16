@@ -41,7 +41,7 @@ export default function DashboardNavbar({ user }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0b0d16]/85 text-slate-200 shadow-sm shadow-black/10 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface-1/90 text-slate-200 shadow-sm shadow-black/10 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5" aria-label="NotifyX overview">
           <span className="grid size-8 place-items-center rounded-lg border border-violet-300/20 bg-violet-400/10 text-violet-200">
@@ -60,7 +60,7 @@ export default function DashboardNavbar({ user }) {
                 to={to}
                 aria-current={active ? "page" : undefined}
                 className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors ${
-                  active ? "bg-white/[0.07] text-white" : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
+                  active ? "bg-surface-2/85 text-white" : "text-slate-400 hover:bg-surface-2/75 hover:text-slate-100"
                 }`}
               >
                 <Icon size={15} aria-hidden="true" />{label}
@@ -98,7 +98,7 @@ export default function DashboardNavbar({ user }) {
               aria-haspopup="menu"
               aria-expanded={isOpen}
               onClick={() => setIsOpen((open) => !open)}
-              className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0d16]"
+              className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-1"
             >
               <span className="grid size-9 place-items-center rounded-full border border-violet-300/20 bg-violet-400/10 text-sm font-semibold text-violet-200 transition hover:border-violet-200/40">
                 {initial}
@@ -107,7 +107,7 @@ export default function DashboardNavbar({ user }) {
             </button>
 
             {isOpen && (
-              <div role="menu" aria-label="Account options" className="absolute right-0 top-[calc(100%+12px)] z-50 w-72 rounded-xl border border-white/10 bg-[#11131e] p-2 shadow-2xl shadow-black/40">
+              <div role="menu" aria-label="Account options" className="absolute right-0 top-[calc(100%+12px)] z-50 w-72 rounded-xl border border-border bg-surface-2 p-2 shadow-2xl shadow-black/40">
                 <div className="flex min-w-0 items-center gap-3 px-2 py-2.5" role="none">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full border border-violet-300/20 bg-violet-400/10 text-sm font-semibold text-violet-200" aria-hidden="true">{initial}</span>
                   <span className="grid min-w-0 gap-1">
@@ -115,11 +115,11 @@ export default function DashboardNavbar({ user }) {
                     <span className="truncate text-xs text-slate-500" title={email}>{email || "Email unavailable"}</span>
                   </span>
                 </div>
-                <div className="my-1.5 h-px bg-white/[0.07]" role="separator" />
+                <div className="my-1.5 h-px bg-surface-2/85" role="separator" />
                 <span aria-disabled="true" title="Settings are coming soon" className="flex min-h-10 cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-slate-600" role="menuitem">
                   <Settings size={16} aria-hidden="true" /> Settings <span className="ml-auto text-[10px]">Soon</span>
                 </span>
-                <div className="my-1.5 h-px bg-white/[0.07]" role="separator" />
+                <div className="my-1.5 h-px bg-surface-2/85" role="separator" />
                 <Form action="/logout" method="post" role="none">
                   <button
                     type="submit"
@@ -137,10 +137,10 @@ export default function DashboardNavbar({ user }) {
         </div>
       </div>
 
-      <nav aria-label="Mobile navigation" className="flex gap-1 overflow-x-auto border-t border-white/[0.05] px-3 py-2 lg:hidden">
+      <nav aria-label="Mobile navigation" className="flex gap-1 overflow-x-auto border-t border-border px-3 py-2 lg:hidden">
         {primaryLinks.map(({ label, to, active }) =>
           to ? (
-            <Link key={label} to={to} aria-current={active ? "page" : undefined} className={`shrink-0 rounded-lg px-3 py-2 text-xs ${active ? "bg-white/[0.08] text-white" : "text-slate-400 hover:text-white"}`}>
+            <Link key={label} to={to} aria-current={active ? "page" : undefined} className={`shrink-0 rounded-lg px-3 py-2 text-xs ${active ? "bg-surface-2/90 text-white" : "text-slate-400 hover:text-white"}`}>
               {label}
             </Link>
           ) : (
