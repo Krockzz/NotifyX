@@ -6,83 +6,96 @@ import jwt from "jsonwebtoken"
 import { GenerateAccessToken, hashPassword, GenerateRefreshToken, isPasswordCorrect, 
     GenerateApiKey, HashApiKey } from "../utils/BasicFuntions.js";
 
-const createApplication = asyncHandler(async (req , res , next) => {
+const createApplication = asyncHandler(async (req, res, next) => {
+    const { appName } = req.body;
 
-    const {appName} = req.body
-
-    if(!appName?.trim()){
-        throw new ApiError(
-            400,
-            "App Name is required"
-        )
+    if (!appName?.trim()) {
+        throw new ApiError(400, "App Name is required");
     }
 
     const userId = req.user?.id;
-    if(!userId){
-        throw new ApiError(
-            400 , 
-            "User login is required before creating any application"
-        )
+    if (!userId) {
+        throw new ApiError(400, "User login is required before creating any application");
     }
 
-     const apiKey = GenerateApiKey();
-     if(apiKey == null){
-        throw new ApiError(
-            500,
-            "Error in generating ApiKey"
-        )
-     }
-     const apiKeyHash = HashApiKey(apiKey);
-
-      if(apiKeyHash == null){
-        throw new ApiError(
-            500,
-            "Error in generating ApiKeyHash"
-        )
-     }
-
-     const Application = await prisma.application.create({
-        data : {
-
+    const application = await prisma.application.create({
+        data: {
             userId,
-            appName : appName?.trim(),
-            apiKeyHash
-        }, 
+            appName: appName.trim(),
         
-        select : {
-
-            userId : true,
-            appName : true,
+        },
+        select: {
+            id: true,
+            appName: true,
             isActive: true,
             created_at: true,
             updated_at: true
         }
-     })
+    });
 
+    if (!application) {
+        throw new ApiError(500, "Something went wrong while creating the application");
+    }
 
-     if(!Application){
-        throw new ApiError(
+    return res.status(201).json(new ApiResponse(
+        201,
+        { application },
+        "Application created successfully! You can now generate an API key."
+    ));
+});
 
-            500,
-            "Something went wrong while creating the application"
-        )
-     }
+const generateApiKey = asyncHandler(async (req, res, next) => {
+    const { appId } = req.params; 
+    const userId = req.user?.id;
 
-     return res
-     .status(201)
-     .json(new ApiResponse (
+    if (!appId) {
+        throw new ApiError(400, "Application ID is required");
+    }
 
+    if (!userId) {
+        throw new ApiError(401, "User login is required");
+    }
+
+   
+    const existingApp = await prisma.application.findFirst({
+        where: { id: appId, userId: userId }
+    });
+
+    if (!existingApp) {
+        throw new ApiError(404, "Application not found or unauthorized");
+    }
+
+  
+    const apiKey = GenerateApiKey(); 
+    if (!apiKey) {
+        throw new ApiError(500, "Error in generating ApiKey");
+    }
+
+    const apiKeyHash = HashApiKey(apiKey);
+    if (!apiKeyHash) {
+        throw new ApiError(500, "Error in generating ApiKeyHash");
+    }
+
+  
+    const updatedApplication = await prisma.application.update({
+        where: { id: appId },
+        data: { apiKeyHash },
+        select: {
+            id: true,
+            appName: true,
+            created_at: true
+        }
+    });
+
+    return res.status(200).json(new ApiResponse(
         200,
-         {
-            Application,
-            apiKey
-         } ,
-
-        "Application Created successfully!!"
-     ))
-
-
-})
+        {
+            application: updatedApplication,
+            apiKey 
+        },
+        "API Key generated successfully! Make sure to copy it now, it will not be shown again."
+    ));
+});
 
 const getApplications = asyncHandler(async (req, res) => {
 
@@ -340,6 +353,7 @@ const deleteApplication = asyncHandler(async (req, res) => {
 
 export {
     createApplication,
+    generateApiKey,
     getApplications,
     getApplicationById,
     updateApplication,

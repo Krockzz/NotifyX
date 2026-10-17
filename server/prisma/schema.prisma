@@ -73,7 +73,7 @@ model Application {
   id         String   @id @default(uuid())
   userId     String
   appName    String   @db.VarChar(255)
-  apiKeyHash String   @unique @db.VarChar(255)
+  apiKeyHash String?   @unique @db.VarChar(255)
   isActive   Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
