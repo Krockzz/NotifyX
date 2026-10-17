@@ -194,7 +194,7 @@ export default function Dashboard() {
             </p>
           </div>
           <button
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-500 px-4 text-sm font-medium text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-[0_0_25px_rgba(139,92,246,0.25)] transition-all duration-200 hover:from-violet-500 hover:to-indigo-500 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
             type="button"
             onClick={openDialog}
           >
