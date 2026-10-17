@@ -48,15 +48,21 @@ export default function ApplicationDetail() {
         <main className="application-detail-enter mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-5 px-4 pb-12 pt-5 sm:px-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:gap-7 lg:px-8 lg:pt-7">
           <ApplicationSidebar appId={appId} currentSection={currentSection} application={application} user={locationState.user} />
           <div className="min-w-0">
-            <ApplicationDetailHeader application={application} />
-            <ApplicationStats />
-
-            {currentSection === "overview" && <OverviewPanel appId={appId} application={application} user={locationState.user} />}
-            {currentSection === "keys" && <div className="application-detail-panel-enter"><ApiKeysPanel /></div>}
-            {currentSection === "events" && <div className="application-detail-panel-enter"><EventTypesPanel eventTypes={null} /></div>}
-            {currentSection === "channels" && <div className="application-detail-panel-enter"><ChannelsPanel /></div>}
-            {currentSection === "activity" && <div className="application-detail-panel-enter"><ActivityPanel /></div>}
-            {currentSection === "settings" && <div className="application-detail-panel-enter"><SettingsPanel /></div>}
+            {currentSection === "overview" ? (
+              <>
+                <ApplicationDetailHeader application={application} />
+                <ApplicationStats />
+                <OverviewPanel appId={appId} application={application} user={locationState.user} />
+              </>
+            ) : (
+              <div className="application-detail-panel-enter">
+                {currentSection === "keys" && <ApiKeysPanel key={appId} appId={appId} />}
+                {currentSection === "events" && <EventTypesPanel />}
+                {currentSection === "channels" && <ChannelsPanel />}
+                {currentSection === "activity" && <ActivityPanel />}
+                {currentSection === "settings" && <SettingsPanel />}
+              </div>
+            )}
           </div>
         </main>
       )}

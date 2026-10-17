@@ -10,7 +10,10 @@ import router6 from "./routers/Event.routers.js"
 
 const app = express() // and instance of express server
 
-app.use(cors())
+app.use(cors({
+    origin: "http://localhost:5173", // Your exact frontend development URL (no trailing slash)
+    credentials: true                 // Required to allow authentication cookies to pass through
+}));
 
 app.use(express.json({
     limit:"16kb"
