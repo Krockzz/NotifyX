@@ -44,58 +44,7 @@ const createApplication = asyncHandler(async (req, res, next) => {
     ));
 });
 
-const generateApiKey = asyncHandler(async (req, res, next) => {
-    const { appId } = req.params; 
-    const userId = req.user?.id;
 
-    if (!appId) {
-        throw new ApiError(400, "Application ID is required");
-    }
-
-    if (!userId) {
-        throw new ApiError(401, "User login is required");
-    }
-
-   
-    const existingApp = await prisma.application.findFirst({
-        where: { id: appId, userId: userId }
-    });
-
-    if (!existingApp) {
-        throw new ApiError(404, "Application not found or unauthorized");
-    }
-
-  
-    const apiKey = GenerateApiKey(); 
-    if (!apiKey) {
-        throw new ApiError(500, "Error in generating ApiKey");
-    }
-
-    const apiKeyHash = HashApiKey(apiKey);
-    if (!apiKeyHash) {
-        throw new ApiError(500, "Error in generating ApiKeyHash");
-    }
-
-  
-    const updatedApplication = await prisma.application.update({
-        where: { id: appId },
-        data: { apiKeyHash },
-        select: {
-            id: true,
-            appName: true,
-            created_at: true
-        }
-    });
-
-    return res.status(200).json(new ApiResponse(
-        200,
-        {
-            application: updatedApplication,
-            apiKey 
-        },
-        "API Key generated successfully! Make sure to copy it now, it will not be shown again."
-    ));
-});
 
 const getApplications = asyncHandler(async (req, res) => {
 
@@ -353,7 +302,7 @@ const deleteApplication = asyncHandler(async (req, res) => {
 
 export {
     createApplication,
-    generateApiKey,
+
     getApplications,
     getApplicationById,
     updateApplication,

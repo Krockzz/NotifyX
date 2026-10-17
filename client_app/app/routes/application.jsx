@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from "react-router";
+import { data, Link, redirect, useLoaderData, useLocation, useParams } from "react-router";
 import DashboardNavbar from "../components/dashboard/DashboardNavbar.jsx";
 import ApplicationDetailHeader from "../components/application/ApplicationDetailHeader.jsx";
 import ApplicationSidebar from "../components/application/ApplicationSidebar.jsx";
@@ -13,6 +13,7 @@ import {
 } from "../components/application/ApplicationDetailPanels.jsx";
 
 const sections = new Set(["keys", "events", "channels", "activity", "settings"]);
+const API_URI = import.meta.env.VITE_API_URL;
 
 function ApplicationUnavailableState({ notFound = false }) {
   return (
@@ -31,8 +32,56 @@ function ApplicationUnavailableState({ notFound = false }) {
   );
 }
 
+export async function loader({ request, params }) {
+  if (params.tab !== "keys") {
+    return data({ apiKeys: [], apiKeysError: "" });
+  }
+
+  const appId = params.appId
+
+  if (!appId) {
+    return data({ apiKeys: [], apiKeysError: "An application ID is required to load API keys." });
+  }
+
+
+  try {
+    const cookieHeader = request.headers.get("Cookie") || "";
+    const response = await fetch(`${API_URI}/api/v1/apiKey/get-api-keys/${encodeURIComponent(appId)}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      credentials: "include",
+    });
+
+    if ([400, 401, 403].includes(response.status)) return redirect("/login");
+
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      return data({ apiKeys: [], apiKeysError: "The application service returned an unreadable API-key response." });
+    }
+
+    if (!response.ok || payload?.success === false) {
+      return data({ apiKeys: [], apiKeysError: payload?.message || "Could not load API keys for this application." });
+    }
+
+    const apiKeys = payload?.data?.apiKeys;
+    if (!Array.isArray(apiKeys)) {
+      return data({ apiKeys: [], apiKeysError: "The application service returned an invalid API-key list." });
+    }
+
+    return data({ apiKeys, apiKeysError: "" });
+  } catch {
+    return data({ apiKeys: [], apiKeysError: "Unable to connect to the application service. Try again later." });
+  }
+}
+
 export default function ApplicationDetail() {
   const { appId, tab } = useParams();
+  const { apiKeys = [], apiKeysError = "" } = useLoaderData();
   const location = useLocation();
   const locationState = location.state || {};
   const candidate = locationState.application;
@@ -56,7 +105,7 @@ export default function ApplicationDetail() {
               </>
             ) : (
               <div className="application-detail-panel-enter">
-                {currentSection === "keys" && <ApiKeysPanel key={appId} appId={appId} />}
+                {currentSection === "keys" && <ApiKeysPanel key={appId} appId={appId} apiKeys={apiKeys} apiKeysError={apiKeysError} />}
                 {currentSection === "events" && <EventTypesPanel />}
                 {currentSection === "channels" && <ChannelsPanel />}
                 {currentSection === "activity" && <ActivityPanel />}

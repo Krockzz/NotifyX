@@ -7,12 +7,13 @@ import router3 from "./routers/eventType.routers.js"
 import router4 from "./routers/EventTypeChannel.routers.js"
 import router5 from "./routers/Template.routers.js"
 import router6 from "./routers/Event.routers.js"
+import router7 from  "./routers/apiKey.router.js"
 
-const app = express() // and instance of express server
+const app = express() 
 
 app.use(cors({
-    origin: "http://localhost:5173", // Your exact frontend development URL (no trailing slash)
-    credentials: true                 // Required to allow authentication cookies to pass through
+    origin: "http://localhost:5173",
+    credentials: true                 
 }));
 
 app.use(express.json({
@@ -32,5 +33,6 @@ app.use("/api/v1/eventTypes" , router3)
 app.use("/api/v1/eventChannels" , router4)
 app.use("/api/v1/Templates" , router5)
 app.use("/api/v1/Events" , router6)
+app.use("/api/v1/apiKey" , router7)
 
 export {app}
