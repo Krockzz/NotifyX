@@ -92,9 +92,9 @@ const sampleMetrics = [
   {
     label: "Error rate",
     value: "0.06%",
-    detail: <><CircleAlert size={14} className="text-rose-300" aria-hidden="true" /><span>Within expected range</span></>,
+    detail: <><CircleAlert size={14} className="text-red-400" aria-hidden="true" /><span>Within expected range</span></>,
     icon: CircleAlert,
-    tone: "amber",
+    tone: "red",
   },
 ];
 
@@ -228,7 +228,7 @@ export default function Dashboard() {
               <h2 className="text-sm font-medium text-slate-200">Applications</h2>
               <span className="text-xs text-slate-500">{visibleApplications.length} total</span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {visibleApplications.map((application) => (
                 <ApplicationCard key={application.id} application={application} onChanged={handleApplicationChanged} user={user} />
               ))}

@@ -41,16 +41,26 @@ export default function DashboardNavbar({ user }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface-1/90 text-slate-200 shadow-sm shadow-black/10 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#0B0F17]/90 text-slate-200 shadow-sm shadow-black/10 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5" aria-label="NotifyX overview">
-          <span className="grid size-8 place-items-center rounded-lg border border-violet-300/20 bg-violet-400/10 text-violet-200">
-            <Bell size={17} aria-hidden="true" />
-          </span>
-          <span className="text-[15px] font-semibold tracking-tight text-white">
-            Notify<span className="text-violet-300">X</span>
-          </span>
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link to="/dashboard" className="flex shrink-0 items-center gap-2.5" aria-label="NotifyX overview">
+            <span className="grid size-8 place-items-center rounded-lg border border-violet-300/20 bg-violet-400/10 text-violet-200">
+              <Bell size={17} aria-hidden="true" />
+            </span>
+            <span className="text-[15px] font-semibold tracking-tight text-white">
+              Notify<span className="text-violet-300">X</span>
+            </span>
+          </Link>
+          <label className="relative hidden sm:block">
+            <span className="sr-only">Environment</span>
+            <select defaultValue="production" aria-label="Environment" className="h-9 appearance-none rounded-lg border border-slate-800 bg-[#111827]/80 py-0 pl-3 pr-9 text-xs font-medium text-slate-300 outline-none transition hover:border-slate-700 focus-visible:border-violet-400 focus-visible:ring-2 focus-visible:ring-violet-500/20">
+              <option value="production">Production</option>
+              <option value="development">Development</option>
+            </select>
+            <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+          </label>
+        </div>
 
         <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
           {primaryLinks.map(({ label, to, icon: Icon, active }) =>

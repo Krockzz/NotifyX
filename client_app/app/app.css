@@ -1201,7 +1201,7 @@ button { font: inherit; }
   isolation: isolate;
   min-height: 100vh;
   color: inherit;
-  background: var(--bg);
+  background: #0b0f17;
 }
 .workspace-dashboard::before {
   position: absolute;

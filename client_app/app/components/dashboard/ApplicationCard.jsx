@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowRight,
   Box,
-  Check,
   MoreVertical,
   Pencil,
   Trash2,
@@ -28,6 +27,27 @@ function formatCreatedDate(value) {
   }).format(date);
 }
 
+function formatRelativeDate(value) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return null;
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 2592000) return `${Math.floor(seconds / 86400)}d ago`;
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(timestamp);
+}
+
+function getChannelName(channel) {
+  const value = typeof channel === "string"
+    ? channel
+    : channel && typeof channel === "object"
+      ? channel.name || channel.type || channel.channel || ""
+      : "";
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "";
+}
+
 export default function ApplicationCard({ application, onChanged, user }) {
   const menuId = useId();
   const menuRef = useRef(null);
@@ -41,10 +61,21 @@ export default function ApplicationCard({ application, onChanged, user }) {
   const [dialogMode, setDialogMode] = useState(null);
   const [appName, setAppName] = useState(application.appName || "");
   const [error, setError] = useState("");
+  const [copiedId, setCopiedId] = useState(false);
 
   const appId = application.id;
   const createdDate = formatCreatedDate(application.created_at);
+  const updatedDate = formatRelativeDate(application.updated_at ?? application.updatedAt);
   const isActive = application.isActive !== false;
+  const channelValues = Array.isArray(application.enabledChannels)
+    ? application.enabledChannels
+    : Array.isArray(application.channels)
+      ? application.channels
+      : [];
+  const channels = channelValues
+    .filter((channel) => !channel || typeof channel !== "object" || (channel.enabled !== false && channel.isEnabled !== false))
+    .map(getChannelName)
+    .filter(Boolean);
 
   const isSubmitting =
     navigation.state !== "idle" &&
@@ -128,70 +159,57 @@ export default function ApplicationCard({ application, onChanged, user }) {
     setError("");
   }
 
+  async function copyApplicationId() {
+    try {
+      await navigator.clipboard.writeText(String(appId));
+      setCopiedId(true);
+      window.setTimeout(() => setCopiedId(false), 1400);
+    } catch {
+      setCopiedId(false);
+    }
+  }
+
   return (
     <>
-      <article className="group relative flex min-h-[118px] min-w-0 items-start gap-3 rounded-xl border border-border bg-surface-1 p-4 pr-14 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/40 hover:bg-surface-2 sm:p-5 sm:pr-14">
-        <Link
-          to={`/dashboard/${encodeURIComponent(appId)}`}
-          state={{ application, user }}
-          aria-label={`Open ${application.appName}`}
-          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
-        >
-          <span
-            className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface-2 text-slate-400"
-            aria-hidden="true"
+      <article className="group relative flex min-h-[228px] min-w-0 flex-col gap-4 rounded-xl border border-slate-800/80 bg-[#111827]/80 p-4 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-[0_8px_25px_rgba(124,58,237,0.08)] sm:p-5">
+        <div className="flex min-w-0 items-start justify-between gap-3 pr-9">
+          <Link
+            to={`/dashboard/${encodeURIComponent(appId)}`}
+            state={{ application, user }}
+            aria-label={`Open ${application.appName}`}
+            className="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
           >
-            <Box size={19} strokeWidth={1.8} />
-          </span>
-
-          <span className="grid min-w-0 flex-1 gap-2 pt-0.5">
-            <strong
-              className="truncate text-sm font-medium text-slate-100"
-              title={application.appName}
-            >
-              {application.appName}
-            </strong>
-
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                isActive
-                  ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300"
-                  : "border-slate-400/15 bg-slate-400/[0.06] text-slate-400"
-              }`}
-            >
-              <span
-                className={`size-1.5 rounded-full ${
-                  isActive ? "bg-emerald-300" : "bg-slate-500"
-                }`}
-                aria-hidden="true"
-              />
-              {isActive ? "Active" : "Paused"}
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-violet-400/15 bg-violet-500/10 text-violet-300" aria-hidden="true">
+              <Box size={19} strokeWidth={1.8} />
             </span>
-
-            {createdDate && (
-              <small className="text-xs text-slate-500">
-                Created {createdDate}
-              </small>
-            )}
+            <span className="grid min-w-0 gap-1.5">
+              <strong className="truncate text-sm font-semibold text-slate-100" title={application.appName}>{application.appName}</strong>
+              <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${isActive ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border-slate-700 bg-slate-800/70 text-slate-400"}`}>
+                <span className={`size-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-slate-500"}`} aria-hidden="true" />
+                {isActive ? "Active" : "Inactive"}
+              </span>
             </span>
+            <ArrowRight className="shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-violet-300" size={15} aria-hidden="true" />
+          </Link>
+        </div>
 
-            <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
-              <Check
-                size={12}
-                className={isActive ? "text-emerald-300/80" : "text-slate-500"}
-                aria-hidden="true"
-              />
-              {isActive ? "Delivery enabled" : "Delivery paused"}
-            </span>
-          </span>
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-800/80 bg-[#0B0F17]/80 px-3 py-2">
+          <code className="min-w-0 truncate font-mono text-[11px] text-slate-400" title={String(appId)}>{String(appId)}</code>
+          <button type="button" onClick={copyApplicationId} aria-label={copiedId ? "Application ID copied" : "Copy application ID"} title={copiedId ? "Copied" : "Copy ID"} className="shrink-0 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-violet-500/10 hover:text-violet-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400">
+            {copiedId ? "Copied" : "Copy ID"}
+          </button>
+        </div>
 
-          <ArrowRight
-            className="mt-1 shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-violet-200"
-            size={16}
-            aria-hidden="true"
-          />
-        </Link>
+        <div className="flex min-h-6 flex-wrap items-center gap-1.5" aria-label="Configured notification channels">
+          {channels.length ? channels.map((channel, index) => (
+            <span key={`${channel}-${index}`} title={`${channel} notification channel`} className="rounded-md border border-slate-700/80 bg-slate-800/60 px-2 py-1 text-[10px] font-medium text-slate-400 transition hover:border-violet-500/40 hover:text-violet-300">{channel}</span>
+          )) : <span title="No channel information is available for this application" className="rounded-md border border-slate-800 bg-slate-900/50 px-2 py-1 text-[10px] text-slate-500">Channels unavailable</span>}
+        </div>
+
+        <footer className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-800/80 pt-3 text-[11px] text-slate-500">
+          <span>{createdDate ? `Created ${createdDate}` : "Created date unavailable"}</span>
+          <span>{updatedDate ? `Updated ${updatedDate}` : "Updated date unavailable"}</span>
+        </footer>
 
         <button
           ref={menuButtonRef}
