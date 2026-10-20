@@ -97,7 +97,6 @@ model ApiKey {
   updatedAt     DateTime @updatedAt
   lastUsedAt    DateTime?
   revokedAt     DateTime @default(now())
-  revoked       Boolean? @default(false)
 
   application Application @relation( fields: [applicationId], references: [id],onDelete: Cascade )
 
