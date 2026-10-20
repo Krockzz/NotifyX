@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "ApiKey" ALTER COLUMN "revokedAt" DROP NOT NULL,
+ALTER COLUMN "revokedAt" DROP DEFAULT;

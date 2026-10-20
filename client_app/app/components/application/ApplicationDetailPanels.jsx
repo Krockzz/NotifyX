@@ -116,13 +116,18 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
   const [selectedKey, setSelectedKey] = useState(null);
   const [showRevokeModal, setShowRevokeModal] = useState(false);
   const [revokeFeedback, setRevokeFeedback] = useState("");
+  const [revokingKeyId, setRevokingKeyId] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const successTimeoutRef = useRef(null);
   const createInputRef = useRef(null);
   const dialogRef = useRef(null);
   const modalTriggerRef = useRef(null);
   const previousFocusRef = useRef(null);
   const activeModalRef = useRef(null);
   const loadingRef = useRef(loading);
-  loadingRef.current = loading;
+  loadingRef.current = loading || Boolean(revokingKeyId);
+
+  useEffect(() => () => window.clearTimeout(successTimeoutRef.current), []);
 
   useEffect(() => {
     setKeys(apiKeys);
@@ -288,13 +293,53 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
     setShowRevokeModal(true);
   }
 
-  function previewRevokeOnly() {
-    setRevokeFeedback("Revocation is not connected yet. No request was sent and this key remains active.");
+  async function revokeApiKey(keyId) {
+    if (!appId || !selectedKey || loading || revokingKeyId) return;
+    if (String(selectedKey.id) !== String(keyId)) return;
+
+    setRevokingKeyId(String(keyId));
+    setRevokeFeedback("");
+
+    try {
+      if (!API_URI) throw new Error("The application service is not configured.");
+      const response = await fetch(`${API_URI.replace(/\/+$/, "")}/api/v1/apiKey/revoke-api-key/${encodeURIComponent(appId)}/${encodeURIComponent(selectedKey.id)}`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.success === false) {
+        throw new Error(payload?.message || `Could not revoke this API key (HTTP ${response.status}).`);
+      }
+
+      const responseData = payload?.data || payload || {};
+      const updatedKey = responseData.key || responseData.apiKeyRecord || responseData.updatedKey || responseData.apiKey || responseData;
+      if (!updatedKey || typeof updatedKey !== "object" || !updatedKey.revokedAt) {
+        throw new Error("The service did not return the revoked API key record.");
+      }
+
+      const revokedName = selectedKey.name || selectedKey.keyPrefix || "API key";
+      setKeys((currentKeys) => currentKeys.map((key) => (
+        String(key.id) === String(selectedKey.id) ? { ...key, ...updatedKey } : key
+      )));
+      setShowRevokeModal(false);
+      setSelectedKey(null);
+      setRevokeFeedback("");
+      setSuccessMessage(`API key “${revokedName}” has been revoked.`);
+      window.clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = window.setTimeout(() => setSuccessMessage(""), 4500);
+    } catch (requestError) {
+      setRevokeFeedback(requestError.message || "Could not revoke this API key. Please try again.");
+    } finally {
+      setRevokingKeyId(null);
+    }
   }
 
   return <>
     <SectionPanel icon={Code2} eyebrow="Security" title="API Keys" description="Manage the credentials used by your application to send events to NotifyX." action={<button ref={modalTriggerRef} type="button" onClick={() => { setCreateError(""); setShowCreateModal(true); }} disabled={!appId || loading} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-[0_0_25px_rgba(139,92,246,0.25)] transition-all duration-200 hover:from-violet-500 hover:to-indigo-500 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none"><Plus size={16} aria-hidden="true" />Create Key</button>}>
       <>
+        {successMessage && <p role="status" className="mx-5 mt-5 flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-3 text-sm text-emerald-300 sm:mx-6"><Check size={15} aria-hidden="true" />{successMessage}</p>}
         {listError ? (
           <div role="alert" className="grid min-h-56 place-items-center px-5 py-10 text-center sm:px-8"><div className="max-w-md"><p className="text-sm font-medium text-rose-300">Unable to load API keys</p><p className="mt-2 text-xs leading-5 text-slate-400">{listError}</p></div></div>
         ) : keys.length ? <>
@@ -310,7 +355,7 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
                 <div><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-600 xl:hidden">Last used</span><span className="text-xs text-slate-500">{formatDate(key.lastUsedAt) === "—" ? "Never" : formatDate(key.lastUsedAt)}</span></div>
                 <div><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-600 xl:hidden">Expiry</span><span className="text-xs text-slate-500">{key.expiresAt ? formatDate(key.expiresAt) : "No expiry"}</span></div>
                 <div><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-600 xl:hidden">Status</span><span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-medium ${statusStyle}`}><span className="size-1.5 rounded-full bg-current" aria-hidden="true" />{status}</span></div>
-                <div><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-600 xl:hidden">Actions</span>{status === "Active" ? <button type="button" onClick={() => openRevokeDialog(key)} className="inline-flex min-h-8 items-center rounded-lg border border-rose-300/15 px-2.5 text-xs font-medium text-rose-300 transition hover:border-rose-300/30 hover:bg-rose-300/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300">Revoke</button> : <span className="text-xs text-slate-600">—</span>}</div>
+                <div><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-600 xl:hidden">Actions</span>{status === "Active" ? (revokingKeyId === String(key.id) ? <span className="inline-flex min-h-8 items-center gap-1.5 text-xs text-rose-300" role="status"><LoaderCircle size={13} className="animate-spin" aria-hidden="true" />Revoking…</span> : <button type="button" onClick={() => openRevokeDialog(key)} className="inline-flex min-h-8 items-center rounded-lg border border-rose-300/15 px-2.5 text-xs font-medium text-rose-300 transition hover:border-rose-300/30 hover:bg-rose-300/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300">Revoke</button>) : <span className="text-xs text-slate-600">—</span>}</div>
               </article>;
             })}
           </div>
@@ -373,11 +418,14 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             <div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-rose-300"><X size={18} aria-hidden="true" /></span><div><h2 id="api-key-revoke-title" className="text-lg font-semibold text-white">Revoke API key?</h2><p id="api-key-revoke-description" className="mt-1 text-sm leading-6 text-slate-400">This will stop the selected credential from authenticating future requests after the backend processes revocation.</p></div></div>
             <div className="mt-4 rounded-xl border border-border bg-surface-2/60 px-4 py-3"><p className="truncate text-sm font-medium text-slate-200">{selectedKey.name}</p><p className="mt-1 font-mono text-xs text-slate-500">{selectedKey.keyPrefix || "—"}••••</p></div>
-            {revokeFeedback && <p role="status" className="mt-3 rounded-lg border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2.5 text-sm leading-5 text-amber-200">{revokeFeedback}</p>}
+            {revokeFeedback && <p role="alert" className="mt-3 rounded-lg border border-rose-300/20 bg-rose-300/[0.07] px-3 py-2.5 text-sm leading-5 text-rose-300">{revokeFeedback}</p>}
           </div>
           <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-surface-1 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-            <button type="button" onClick={() => { setShowRevokeModal(false); setSelectedKey(null); }} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-slate-300 transition hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300">Cancel</button>
-            {!revokeFeedback && <button type="button" onClick={previewRevokeOnly} className="min-h-10 rounded-lg border border-rose-300/20 bg-rose-400/[0.08] px-4 text-sm font-medium text-rose-300 transition hover:bg-rose-400/[0.14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300">Revoke Key</button>}
+            <button type="button" disabled={Boolean(revokingKeyId)} onClick={() => { setShowRevokeModal(false); setSelectedKey(null); setRevokeFeedback(""); }} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-slate-300 transition hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 disabled:cursor-wait disabled:opacity-50">Cancel</button>
+            <button type="button" disabled={Boolean(revokingKeyId)} onClick={() => revokeApiKey(selectedKey.id)} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-rose-300/20 bg-rose-400/[0.08] px-4 text-sm font-medium text-rose-300 transition hover:bg-rose-400/[0.14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300 disabled:cursor-wait disabled:opacity-60">
+              {revokingKeyId && <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />}
+              {revokingKeyId ? "Revoking…" : "Revoke Key"}
+            </button>
           </footer>
         </section>
       </div>,
