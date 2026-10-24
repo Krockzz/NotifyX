@@ -83,7 +83,7 @@ const injestEvent = asyncHandler(async (req, res) => {
  
     await sendEvent(
     "naas-events",
-    `${event.appId}#${event.id}`,
+    `${event.appId}#${event.id}`, // according to this the ordering would be maintained of each isolated application 
     {
 
         eventId: event.id, 
