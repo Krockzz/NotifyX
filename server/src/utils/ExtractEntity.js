@@ -1,3 +1,5 @@
+import { ApiError } from "../utils/ApiError.js";
+
 const getEntityId = (payload, entityIdPath) => {
     const entityId = entityIdPath
         .split(".")
@@ -13,10 +15,10 @@ const getEntityId = (payload, entityIdPath) => {
             return current[key];
         }, payload);
 
+   
     if (
-        (typeof entityId !== "string" &&
-            typeof entityId !== "number") ||
-        !String(entityId).trim()
+        typeof entityId !== "string" &&
+        typeof entityId !== "number"
     ) {
         throw new ApiError(
             400,
@@ -24,19 +26,29 @@ const getEntityId = (payload, entityIdPath) => {
         );
     }
 
-    if (!Number.isFinite(
-        typeof entityId === "number" ? entityId : 0
-    )) {
+
+    const normalizedEntityId = String(entityId).trim();
+
+    if (!normalizedEntityId) {
+        throw new ApiError(
+            400,
+            `Payload must contain a valid entity ID at '${entityIdPath}'`
+        );
+    }
+
+    if (
+        typeof entityId === "number" &&
+        !Number.isFinite(entityId)
+    ) {
         throw new ApiError(
             400,
             `Invalid entity ID at '${entityIdPath}'`
         );
     }
 
-    return String(entityId).trim();
+    return normalizedEntityId;
 };
 
-
 export {
-    getEntityId
-}
+    getEntityId,
+};
