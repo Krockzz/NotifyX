@@ -3,13 +3,17 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import prisma from "../DB/index.js";
 import { sendEvent } from "../kafka/producer.js";
+import { getEntityId } from "../utils/ExtractEntity.js";
+
 
 
 const injestEvent = asyncHandler(async (req, res) => {
-
     const { eventCode, payload } = req.body;
 
-    if (!eventCode?.trim()) {
+    if (
+        typeof eventCode !== "string" ||
+        !eventCode.trim()
+    ) {
         throw new ApiError(
             400,
             "Event code is required"
@@ -28,6 +32,7 @@ const injestEvent = asyncHandler(async (req, res) => {
         );
     }
 
+  
     const application = req.application;
 
     if (!application) {
@@ -37,7 +42,6 @@ const injestEvent = asyncHandler(async (req, res) => {
         );
     }
 
-   
     if (!application.isActive) {
         throw new ApiError(
             403,
@@ -49,13 +53,19 @@ const injestEvent = asyncHandler(async (req, res) => {
         where: {
             appId: application.id,
             eventCode: eventCode.trim(),
-            isActive: true
+            isActive: true,
         },
         select: {
             id: true,
             appId: true,
-            eventCode: true
-        }
+            eventCode: true,
+            entityGrp: {
+                select: {
+                    id: true,
+                    entityIdPath: true,
+                },
+            },
+        },
     });
 
     if (!eventType) {
@@ -65,34 +75,52 @@ const injestEvent = asyncHandler(async (req, res) => {
         );
     }
 
+    if (!eventType.entityGrp) {
+        throw new ApiError(
+            400,
+            "This event type has no entity group configured"
+        );
+    }
+
+
+    const entityId = getEntityId(
+        payload,
+        eventType.entityGrp.entityIdPath
+    );
+
+
+    const routingKey = `${application.id}#${entityId}`;
+
+
     const event = await prisma.event.create({
         data: {
             appId: application.id,
             eventTypeId: eventType.id,
-            payload: payload
+            routingKey,
+            payload,
         },
         select: {
             id: true,
             appId: true,
             eventTypeId: true,
+            routingKey: true,
             payload: true,
-            created_at: true
-        }
+            created_at: true,
+        },
     });
 
- 
     await sendEvent(
-    "naas-events",
-    `${event.appId}#${event.id}`, // according to this the ordering would be maintained of each isolated application 
-    {
-
-        eventId: event.id, 
-        appId: event.appId, 
-        eventTypeId: event.eventTypeId, 
-        eventCode: eventType.eventCode,
-         payload: event.payload
-    }
-);
+        "naas-events",
+        event.routingKey,
+        {
+            eventId: event.id,
+            appId: event.appId,
+            eventTypeId: event.eventTypeId,
+            eventCode: eventType.eventCode,
+            routingKey: event.routingKey,
+            payload: event.payload,
+        }
+    );
 
     return res
         .status(201)
@@ -106,5 +134,5 @@ const injestEvent = asyncHandler(async (req, res) => {
 });
 
 export {
-    injestEvent
-}
+    injestEvent,
+};
