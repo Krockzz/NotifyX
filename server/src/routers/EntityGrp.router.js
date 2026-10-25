@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { verifyJwt } from "../middlewares/auth.middlewares";
-import { createEntityGrp, getEntityGrps, getEntityGrpById, deleteEntityGrp, updateEntityGrp } from "../controllers/EntityGrp.controllers";
+import { verifyJwt } from "../middlewares/auth.middlewares.js";
+import { createEntityGrp, getEntityGrps, getEntityGrpById, deleteEntityGrp, updateEntityGrp } from "../controllers/EntityGrp.controllers.js";
 
 const router = new Router();
 
