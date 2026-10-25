@@ -254,7 +254,7 @@ model DeliveryAttempt {
 model OutboxEvent {
   id      String @id @default(uuid())
   topic   String @db.VarChar(255)
-  messageKey String @db.VarChar(255)
+  messageKey String @db.VarChar(255) // this one would act as the routing key here
   payload Json
 
   status OutboxStatus @default(PENDING)

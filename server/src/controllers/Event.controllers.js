@@ -91,6 +91,8 @@ const injestEvent = asyncHandler(async (req, res) => {
 
     const routingKey = `${application.id}#${entityId}`;
 
+    console.log("This one is the routing key", routingKey)
+
 
     const event = await prisma.event.create({
         data: {

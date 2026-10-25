@@ -52,6 +52,12 @@ const processEvent = async ({ topic, partition, message }) => {
             return;
         }
 
+        if (!event.routingKey) {
+    throw new Error(
+        `Missing routing key for event ${event.id}`
+    );
+}
+
 
         console.log("Event found:", event.id);
 
@@ -237,11 +243,13 @@ try {
             }
         });
 
+  
+
         await tx.outboxEvent.create({
 
                 data: {
                 topic: `naas-${channel.channelType.toLowerCase()}`,
-                messageKey: notification.id,
+                messageKey: event.routingKey, // this would act as the routingKey for proper ordering
                 payload: {
                     notificationId: notification.id
                 }
