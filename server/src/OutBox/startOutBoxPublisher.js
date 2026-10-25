@@ -5,15 +5,26 @@ import {
     recoverStaleOutboxEvents
 } from "./outBoxPublisher.js";
 
-const OUTBOX_POLL_INTERVAL = 5000; // At every 5 sec process the events
+const OUTBOX_POLL_INTERVAL = 5000;
 
 await connectProducer();
 
-setInterval(async () => {
-    try {
-        await recoverStaleOutboxEvents();
-        await processOutBox();
-    } catch (error) {
-        console.error("Outbox publisher error:", error);
+const sleep = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+const startOutboxPublisher = async () => {
+    console.log("Outbox publisher started");
+
+    while (true) {
+        try {
+            await recoverStaleOutboxEvents();
+            await processOutBox();
+        } catch (error) {
+            console.error("Outbox publisher error:", error);
+        }
+
+        await sleep(OUTBOX_POLL_INTERVAL);
     }
-}, OUTBOX_POLL_INTERVAL);
+};
+
+await startOutboxPublisher();

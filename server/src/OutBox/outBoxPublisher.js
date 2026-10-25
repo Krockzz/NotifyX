@@ -2,7 +2,11 @@
 import prisma from "../DB/index.js";
 import { sendEvent } from "../kafka/producer.js";
 
-const CLAIM_TIMEOUT = 10_000;
+// const CLAIM_TIMEOUT = 10_000;
+
+const CLAIM_TIMEOUT = Number(
+    process.env.OUTBOX_CLAIM_TIMEOUT_MS ?? 60_000
+);
 
 const recoverStaleOutboxEvents = async () => {
     const staleBefore = new Date(
