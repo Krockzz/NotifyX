@@ -113,10 +113,7 @@ const injestEvent = asyncHandler(async (req, res) => {
         },
     });
 
-    if(!event){
-
-        throw new ApiError(500 , event.error)
-    }
+    
 
     await sendEvent(
         "naas-events",
