@@ -87,23 +87,20 @@ const claimOutBoxEvent = async () => {
         const event = events[0];
 
         await tx.outboxEvent.update({
-            where: {
-                id: event.id
-            },
+            where: { id: event.id },
             data: {
                 status: "PROCESSING",
                 claimed_at: new Date()
             }
         });
 
+        console.log(`Claiming Outbox Event: ${event.id}`);
+
         return event;
     });
 
     return claimedEvent;
 };
-
-
-
 
 const processOutBox = async () => {
     

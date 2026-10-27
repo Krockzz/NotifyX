@@ -79,22 +79,21 @@ model Application {
 }
 
 
-
 model ApiKey {
   id            String   @id @default(uuid())
   applicationId String
+  name          String   @db.VarChar(100)
+  keyPrefix     String   @db.VarChar(20)
+  keyHash       String   @unique @db.VarChar(255)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastUsedAt    DateTime?
+  revokedAt     DateTime?
+  expiresAt     DateTime?
 
-  name      String  @db.VarChar(100)
-  keyPrefix String  @db.VarChar(20)
-  keyHash   String  @unique @db.VarChar(255)
+  application Application @relation(  fields: [applicationId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  lastUsedAt DateTime?
-  revokedAt  DateTime?
-  expiresAt  DateTime?
-
-  application Application @relation(fields: [applicationId],references: [id],  onDelete: Cascade )
+  events Event[]
 
   @@index([applicationId, revokedAt])
   @@index([applicationId, createdAt])
@@ -149,21 +148,25 @@ model Event {
   appId       String
   eventTypeId String
 
+  apiKeyId String?
 
   routingKey String? @db.VarChar(255)
 
   payload    Json
   created_at DateTime @default(now())
 
-  application Application @relation( fields: [appId], references: [id],onDelete: Restrict)
+  application Application @relation( fields: [appId], references: [id],onDelete: Restrict )
 
-  eventType EventType @relation( fields: [appId, eventTypeId], references: [appId, id],onDelete: Restrict )
+  eventType EventType @relation( fields: [appId, eventTypeId],  references: [appId, id], onDelete: Restrict )
+
+  apiKey ApiKey? @relation(fields: [apiKeyId], references: [id], onDelete: SetNull )
 
   notifications Notification[]
   auditEntries  AuditLedger[]
 
   @@index([appId, created_at])
   @@index([eventTypeId, created_at])
+  @@index([apiKeyId])
 }
 
 

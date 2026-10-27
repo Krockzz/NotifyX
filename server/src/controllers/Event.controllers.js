@@ -2,6 +2,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import prisma from "../DB/index.js";
+import { Prisma } from "@prisma/client";
 import { sendEvent } from "../kafka/producer.js";
 import { getEntityId } from "../utils/ExtractEntity.js";
 
@@ -105,11 +106,17 @@ const injestEvent = asyncHandler(async (req, res) => {
             id: true,
             appId: true,
             eventTypeId: true,
+            apiKeyId: true,
             routingKey: true,
             payload: true,
             created_at: true,
         },
     });
+
+    if(!event){
+
+        throw new ApiError(500 , event.error)
+    }
 
     await sendEvent(
         "naas-events",
