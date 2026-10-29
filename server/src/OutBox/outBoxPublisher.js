@@ -1,4 +1,3 @@
-
 import prisma from "../DB/index.js";
 import { sendEvent } from "../kafka/producer.js";
 
@@ -94,7 +93,13 @@ const claimOutBoxEvent = async () => {
             }
         });
 
-        console.log(`Claiming Outbox Event: ${event.id}`);
+        
+    console.log("Claiming Outbox Event:", {
+    id: event.id,
+    topic: event.topic,
+    messageKey: event.messageKey,
+    payload: event.payload,
+});
 
         return event;
     });
@@ -112,12 +117,21 @@ const processOutBox = async () => {
 
     try {
 
-        await sendEvent(
-            outBox.topic,
-            outBox.messageKey,
-            outBox.payload
-        );
+        if (process.env.OUTBOX_TEST_DELAY_MS) {
+console.log(
+`Test delay: ${process.env.OUTBOX_TEST_DELAY_MS}ms for ${outBox.id}`
+);
 
+    await new Promise((resolve) =>
+        setTimeout(resolve, Number(process.env.OUTBOX_TEST_DELAY_MS))
+    );
+}
+
+await sendEvent(
+    outBox.topic,
+    outBox.messageKey,
+    outBox.payload
+);
 
         await prisma.outboxEvent.update({
             where: {

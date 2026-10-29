@@ -245,18 +245,18 @@ try {
 
   
 
-        await tx.outboxEvent.create({
-
-                data: {
-                topic: `naas-${channel.channelType.toLowerCase()}`,
-                messageKey: event.routingKey, // this would act as the routingKey for proper ordering
-                payload: {
-                    notificationId: notification.id
-                }
-
+  await tx.outboxEvent.create({
+    data: {
+        topic: `naas-${channel.channelType.toLowerCase()}`,
+        messageKey: event.routingKey,
+        payload: {
+            notificationId: notification.id,
+            eventId: event.id,
+            eventCode: event.eventType.eventCode,
+            entityId: event.routingKey
         }
-
-    });
+    }
+});
 
     return notification;
 
