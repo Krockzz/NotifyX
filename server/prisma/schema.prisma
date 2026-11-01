@@ -23,6 +23,7 @@ enum NotificationStatus {
 
 enum DeliveryStatus {
   PENDING
+  PROCESSING
   SUCCESS
   FAILED
 }
@@ -235,22 +236,28 @@ model Notification {
 }
 
 
+
 model DeliveryAttempt {
-  id                String        @id @default(uuid())
+  id                String         @id @default(uuid())
   notificationId    String
   attemptNumber     Int
-  provider          String        @db.VarChar(100)
-  status            DeliveryStatus
-  providerMessageId String?       @db.VarChar(255)
-  errorReason       String?       @db.Text
+  provider           String         @db.VarChar(100)
+  status             DeliveryStatus
+  providerMessageId  String?        @db.VarChar(255)
+  errorReason        String?        @db.Text
 
-  created_at     DateTime  @default(now())
-  nextRetryAt    DateTime?
-  retryClaimedAt DateTime?
+  created_at         DateTime       @default(now())
+  nextRetryAt        DateTime?
+  retryClaimedAt     DateTime?
 
-  notification Notification @relation(fields: [notificationId],references: [id],onDelete: Cascade )
+  // Worker ownership
+  workerClaimedAt    DateTime?
+  workerClaimToken   String?        @db.Uuid
+
+  notification Notification @relation( fields: [notificationId], references: [id], onDelete: Cascade )
 
   @@unique([notificationId, attemptNumber])
+  @@index([status, workerClaimedAt])
 }
 
 
