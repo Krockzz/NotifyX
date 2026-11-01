@@ -1,0 +1,10 @@
+{
+  "partitions": [
+    {
+      "topic": "naas-email",
+      "partition": 1,
+      "offset": 44
+    }
+  ],
+  "version": 1
+}
