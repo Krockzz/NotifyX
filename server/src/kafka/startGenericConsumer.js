@@ -13,7 +13,7 @@ const startGenericWorker = async () => {
 
         await connectProducer();
 
-        Promise.all([
+       await  Promise.all([
 
         connectEmailConsumer(),
         connectSmsConsumer(),
