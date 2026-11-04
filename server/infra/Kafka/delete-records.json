@@ -1,0 +1,9 @@
+{
+  "partitions": [
+    { "topic": "naas-email", "partition": 0, "offset": -1 },
+    { "topic": "naas-email", "partition": 1, "offset": -1 },
+    { "topic": "naas-email", "partition": 2, "offset": -1 },
+    { "topic": "naas-email", "partition": 3, "offset": -1 }
+  ],
+  "version": 1
+}
