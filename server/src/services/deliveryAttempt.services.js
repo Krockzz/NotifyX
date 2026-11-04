@@ -3,75 +3,71 @@ import { randomUUID } from "node:crypto";
 
 
 const claimDeliveryAttempt = async ({
-  notificationId,
-  attemptNumber,
-  provider
+    notificationId,
+    attemptNumber,
+    provider
 }) => {
-  const claimToken = randomUUID();
-  const now = new Date();
+    const claimToken = randomUUID();
+    const now = new Date();
 
-  return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async tx => {
 
-    await tx.deliveryAttempt.upsert({
-      where: {
-        notificationId_attemptNumber: {
-          notificationId,
-          attemptNumber
+        await tx.deliveryAttempt.createMany({
+            data: [{
+                notificationId,
+                attemptNumber,
+                provider,
+                status: "PENDING"
+            }],
+            skipDuplicates: true
+        });
+
+     
+        const claimed = await tx.deliveryAttempt.updateMany({
+            where: {
+                notificationId,
+                attemptNumber,
+                status: "PENDING"
+            },
+            data: {
+                status: "PROCESSING",
+                workerClaimedAt: now,
+                workerClaimToken: claimToken
+            }
+        });
+
+       
+        if (claimed.count !== 1) {
+            return null;
         }
-      },
-      create: {
-        notificationId,
-        attemptNumber,
-        provider,
-        status: "PENDING"
-      },
-      update: {}
+
+    
+        await tx.notification.update({
+            where: {
+                id: notificationId
+            },
+            data: {
+                status: "PROCESSING"
+            }
+        });
+
+        const attempt = await tx.deliveryAttempt.findUnique({
+            where: {
+                notificationId_attemptNumber: {
+                    notificationId,
+                    attemptNumber
+                }
+            }
+        });
+
+        return {
+            claimToken,
+            attempt
+        };
     });
-
-
-    const claimed = await tx.deliveryAttempt.updateMany({
-      where: {
-        notificationId,
-        attemptNumber,
-        status: "PENDING"
-      },
-      data: {
-        status: "PROCESSING",
-        workerClaimedAt: now,
-        workerClaimToken: claimToken
-      }
-    });
-
-    if (claimed.count !== 1) {
-      return null;
-    }
-
-  
-    await tx.notification.update({
-      where: {
-        id: notificationId
-      },
-      data: {
-        status: "PROCESSING"
-      }
-    });
-
-  
-    const attempt = await tx.deliveryAttempt.findUnique({
-      where: {
-        notificationId_attemptNumber: {
-          notificationId,
-          attemptNumber
-        }
-      }
-    });
-
-    return {
-      claimToken,
-      attempt
-    };
-  });
 };
+
+
 
 
 const markAttemptSuccess = async ({
