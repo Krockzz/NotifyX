@@ -10,7 +10,10 @@ dotenv.config({
 });
 
 import prisma from "../DB/index.js";
-import { getStaleProcessingAttempts } from "../services/workerRecovery.services.js";
+import {
+  getStaleProcessingAttempts,
+  claimStaleProcessingAttempt,
+} from "../services/workerRecovery.services.js";
 
 async function main() {
   try {
@@ -18,10 +21,25 @@ async function main() {
 
     console.log("Stale Processing Attempts:");
     console.dir(staleAttempts, { depth: null });
+
+    for (const attempt of staleAttempts) {
+      const recoveryClaim = await claimStaleProcessingAttempt({
+        attempt,
+      });
+
+      if (!recoveryClaim) {
+        console.log(
+          `Recovery claim failed for attempt ${attempt.id}`
+        );
+        continue;
+      }
+
+      console.log("Recovery successfully claimed attempt:");
+      console.dir(recoveryClaim, { depth: null });
+    }
   } finally {
     await prisma.$disconnect();
   }
 }
 
 main().catch(console.error);
-
