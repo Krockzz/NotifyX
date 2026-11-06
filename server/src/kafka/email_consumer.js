@@ -1,5 +1,5 @@
 import { createNotificationConsumer } from "./NotificationConsumer.js";
-import {processEmailNotification} from "../workers/Email.js";
+import {processEmailNotification} from "../workers/EmailWorker.js";
 
 
 const {

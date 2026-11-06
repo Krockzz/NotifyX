@@ -1,8 +1,9 @@
 import prisma from "../DB/index.js";
-import { moveNotificationToDLQ } from "../services/deadLetter.services.js";
-import { deliverNotification } from "../services/notificationDelivery.services.js";
-import {  shouldRetry,createRetryAttempt , isPermanentError } from "../services/retry.services.js";
-import { Prisma } from "@prisma/client";
+import {claimDeliveryAttempt,markAttemptSuccess, markAttemptFailed} from "../services/deliveryAttempt.services.js";
+import {startWorkerHeartbeat} from "../services/workerLease.services.js";
+import { shouldRetry, createRetryAttempt, isPermanentError} from "../services/retry.services.js";
+import {moveNotificationToDLQ} from "../services/deadLetter.services.js";
+import {deliverNotification} from "../services/notificationDelivery.services.js";
 
 
 const processEmailNotification = async ({
@@ -10,250 +11,204 @@ const processEmailNotification = async ({
   partition,
   message
 }) => {
+
   let notification;
   let deliveryAttempt;
+  let heartbeat;
 
   try {
-    // 1. Parse Kafka message
+
+
+
+
     const data = JSON.parse(message.value.toString());
+
+console.log("RAW KAFKA MESSAGE:", data);
+console.log("KAFKA OFFSET:", message.offset);
+
+
+   
+
+
+
+    
 
     const {
       notificationId,
       attemptNumber = 1
     } = data;
 
-    console.log("\n==============================");
-    console.log("EMAIL WORKER");
-    console.log("==============================");
-    console.log("Topic:", topic);
-    console.log("Partition:", partition);
-    console.log("Offset:", message.offset);
-    console.log("Kafka Data:", data);
+    console.log(
+      `Processing Email Notification: ${notificationId}`
+    );
 
-    // 2. Find notification
+    console.log(
+      `Attempt Number: ${attemptNumber}`
+    );
+
+
+
     notification = await prisma.notification.findUnique({
       where: {
         id: notificationId
       },
-
       include: {
-
         event: true
       }
     });
 
     if (!notification) {
       console.log(
-        `Notification not found: ${notificationId}`
+        `Notification ${notificationId} not found.`
       );
-
       return;
     }
 
-    console.log(
-      "Notification found:",
-      notification.id
-    );
 
-    console.log(
-      "Channel:",
-      notification.channelType
-    );
 
-    console.log(
-      "Recipient:",
-      notification.recipientTarget
-    );
+    const claim = await claimDeliveryAttempt({
+      notificationId,
+      attemptNumber,
+      provider: "mailtrap"
+    });
 
-    console.log(
-      "Status:",
-      notification.status
-    );
-
-    // 3. Basic idempotency check
-    const existingAttempt =
-      await prisma.deliveryAttempt.findUnique({
-        where: {
-          notificationId_attemptNumber: {
-            notificationId,
-            attemptNumber
-          }
-        }
-      });
-
-    if (existingAttempt) {
+    if (!claim) {
       console.log(
-        `Attempt ${attemptNumber} already exists for notification ${notification.id}.`
+        `Attempt ${attemptNumber} already claimed or completed. Skipping duplicate message.`
       );
-
-      console.log(
-        "Existing attempt status:",
-        existingAttempt.status
-      );
-
-      console.log(
-        "Skipping duplicate Kafka message."
-      );
-
       return;
     }
 
-    // 4. Create delivery attempt
+    deliveryAttempt = claim.attempt;
+
+    const { claimToken } = claim;
+
+    console.log(
+      `Delivery Attempt Claimed: ${deliveryAttempt.id}`
+    );
+
+
+    heartbeat = startWorkerHeartbeat({
+      attemptId: deliveryAttempt.id,
+      claimToken
+    });
+
+
+
+    let deliveryInfo;
+
     try {
-      deliveryAttempt =
-        await prisma.deliveryAttempt.create({
-          data: {
-            notificationId: notification.id,
-            attemptNumber,
-            provider: "mailtrap",
-            status: "PENDING"
-          }
-        });
+
+      deliveryInfo = await deliverNotification(notification);
+
     } catch (error) {
-      // Another worker may have created the same attempt
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        console.log(
-          `Attempt ${attemptNumber} for notification ${notification.id} was already created by another worker.`
-        );
 
-        console.log(
-          "Skipping duplicate Kafka message."
-        );
+      console.error(
+        "Email Delivery Failed:",
+        error.message
+      );
 
+
+
+
+      if (heartbeat.isLost()) {
+        console.error(
+          "Worker ownership lost during delivery. Provider outcome requires reconciliation."
+        );
         return;
       }
 
-      throw error;
-    }
-
-    console.log(
-      "Attempt number:",
-      attemptNumber
-    );
-
-    console.log(
-      "Delivery attempt created:",
-      deliveryAttempt.id
-    );
-
-    // 5. Mark notification as PROCESSING
-    await prisma.notification.update({
-      where: {
-        id: notification.id
-      },
-      data: {
-        status: "PROCESSING"
-      }
-    });
-
-    console.log(
-      "Notification status: PROCESSING"
-    );
-
-    // 6. Send email
-    const deliveryInfo = await deliverNotification(notification);
-
-    console.log(
-      "Email sent successfully"
-    );
-
-    // 7. Mark delivery attempt as SUCCESS
-    await prisma.deliveryAttempt.update({
-      where: {
-        id: deliveryAttempt.id
-      },
-      data: {
-        status: "SUCCESS",
-        providerMessageId: deliveryInfo.messageId
-      }
-    });
-
-    console.log(
-      "Delivery attempt status: SUCCESS"
-    );
-
-    // 8. Mark notification as SENT
-    await prisma.notification.update({
-      where: {
-        id: notification.id
-      },
-      data: {
-        status: "SENT"
-      }
-    });
-
-    console.log(
-      "Notification status: SENT"
-    );
-
-  } catch (error) {
-    console.error(
-      "Error processing email notification:",
-      error
-    );
-
-    // If notification or attempt was not created/found,
-    // allow Kafka processing to fail normally.
-    if (!deliveryAttempt || !notification) {
-      throw error;
-    }
-
-    // 9. Mark delivery attempt as FAILED
-    await prisma.deliveryAttempt.update({
-      where: {
-        id: deliveryAttempt.id
-      },
-      data: {
-        status: "FAILED",
+      const failed = await markAttemptFailed({
+        attemptId: deliveryAttempt.id,
+        claimToken,
         errorReason: error.message
+      });
+
+      if (!failed) {
+        console.error(
+          "Unable to mark attempt FAILED. Worker no longer owns this attempt."
+        );
+        return;
       }
-    });
 
-    console.log(
-      "Delivery attempt status: FAILED"
-    );
 
-    // 10. Schedule retry if allowed
-    
-    const retryAllowed = shouldRetry(deliveryAttempt.attemptNumber, error);
+      const retryAllowed = shouldRetry(
+        deliveryAttempt.attemptNumber,
+        error
+      );
 
-    if (retryAllowed) {
-    await createRetryAttempt({
-        notification,
-        currentAttempt: deliveryAttempt
-    });
+      if (retryAllowed) {
 
-    } else {
+        await createRetryAttempt({
+          currentAttempt: deliveryAttempt
+        });
 
-    const permanentError = isPermanentError(error);
+        console.log(
+          `Retry scheduled for notification ${notificationId}`
+        );
 
-    const reason = permanentError
-        ? "PERMANENT_ERROR"
-        : "MAX_RETRIES_EXCEEDED";
+      } else {
 
-    await moveNotificationToDLQ({
-        notification,
-        attemptCount: deliveryAttempt.attemptNumber,
-        reason,
-        lastError: error.message
-    });
+  
 
-    if (permanentError) {
-        console.log("Permanent error detected.");
-    } else {
-        console.log("Maximum attempts reached.");
+        const permanentError = isPermanentError(error);
+
+        await moveNotificationToDLQ({
+          notification,
+          attemptCount: deliveryAttempt.attemptNumber,
+          reason: permanentError
+            ? "PERMANENT_ERROR"
+            : "MAX_RETRIES_EXCEEDED",
+          lastError: error.message
+        });
+
+        console.log(
+          `Notification ${notificationId} moved to DLQ.`
+        );
+      }
+
+      return;
     }
 
-    console.log("Notification moved to DLQ.");
-}
 
+
+    if (heartbeat.isLost()) {
+      console.error(
+        "Provider returned, but worker ownership was lost. Reconciliation required."
+      );
+      return;
+    }
+
+
+
+
+    const completed = await markAttemptSuccess({
+      attemptId: deliveryAttempt.id,
+      notificationId: notification.id,
+      claimToken,
+      providerMessageId: deliveryInfo.messageId
+    });
+
+    if (!completed) {
+      console.error(
+        "Could not finalize delivery. Worker no longer owns this attempt."
+      );
+      return;
+    }
+
+    console.log(
+      `Email sent successfully for notification ${notificationId}`
+    );
+
+  } finally {
+
+
+    if (heartbeat) {
+      heartbeat.stop();
+    }
 
   }
 };
 
-export {
-  processEmailNotification
-};
+
+export { processEmailNotification };

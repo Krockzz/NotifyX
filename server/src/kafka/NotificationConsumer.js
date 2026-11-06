@@ -6,8 +6,7 @@ const createNotificationConsumer = ({
     handler
 }) => {
 
-    
-    // Creating the consumer with the grp-id
+
 
     const consumer = kafka.consumer({
         groupId
@@ -30,23 +29,37 @@ const createNotificationConsumer = ({
             `${groupId} subscribed to ${topic}`
         );
 
-        await consumer.run({
+       
+await consumer.run({
+  eachMessage: async ({
+    topic,
+    partition,
+    message
+  }) => {
 
-            eachMessage: async ({
-                topic,
-                partition,
-                message
-            }) => {
+    try {
+      await handler({
+        topic,
+        partition,
+        message
+      });
 
-                await handler({
-                    topic,
-                    partition,
-                    message
-                });
+    } catch (error) {
 
-            }
+      console.error("MESSAGE PROCESSING FAILED", {
+        groupId,
+        topic,
+        partition,
+        offset: message.offset,
+        error: error.message
+      });
 
-        });
+      throw error;
+    }
+
+  }
+});
+
     };
 
     return {
