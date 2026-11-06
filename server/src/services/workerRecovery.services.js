@@ -1,7 +1,7 @@
 
 import prisma from "../DB/index.js";
 import { WORKER_CLAIM_TIMEOUT } from "./workerLease.services.js";
-import { configDotenv } from "dotenv";
+import { randomUUID } from "node:crypto";
 
 const getStaleProcessingAttempts = async () => {
   const staleBefore = new Date(
@@ -42,4 +42,57 @@ const getStaleProcessingAttempts = async () => {
   return staleAttempts;
 };
 
-export { getStaleProcessingAttempts };
+
+const claimStaleProcessingAttempt = async ({ attempt }) => {
+  const claimToken = randomUUID();
+  const now = new Date();
+
+  const staleBefore = new Date(
+    now.getTime() - WORKER_CLAIM_TIMEOUT
+  );
+
+  const claimed = await prisma.deliveryAttempt.updateMany({
+    where: {
+      id: attempt.id,
+      status: "PROCESSING",
+
+      // Previous owner must still be the same
+      workerClaimToken: attempt.workerClaimToken,
+
+      OR: [
+        {
+          workerClaimedAt: {
+            lt: staleBefore,
+          },
+        },
+        {
+          workerClaimedAt: null,
+        },
+      ],
+    },
+
+    data: {
+      workerClaimedAt: now,
+      workerClaimToken: claimToken,
+    },
+  });
+
+  if (claimed.count !== 1) {
+    return null;
+  }
+
+  return {
+    attemptId: attempt.id,
+    notificationId: attempt.notificationId,
+    attemptNumber: attempt.attemptNumber,
+    claimToken,
+  };
+};
+
+
+export { 
+getStaleProcessingAttempts,
+claimStaleProcessingAttempt
+
+
+ };
