@@ -2,4 +2,4 @@ import "dotenv/config";
 import { startWorkerRecoveryScheduler } from "./WorkerRecoveryScheduler.js";
 
 
-startWorkerRecoveryScheduler()
+console.log("Worker Recovery Started" , startWorkerRecoveryScheduler())

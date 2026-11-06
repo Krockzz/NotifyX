@@ -83,6 +83,7 @@ const claimStaleProcessingAttempt = async ({ attempt }) => {
 };
 
 
+
 const recoverStaleProcessingAttempt = async ({ attempt }) => {
 
   const recoveryClaim = await claimStaleProcessingAttempt({
@@ -90,13 +91,38 @@ const recoverStaleProcessingAttempt = async ({ attempt }) => {
   });
 
   if (!recoveryClaim) {
-    return { recovered: false, reason: "CLAIM_FAILED" };
+    return {
+      recovered: false,
+      reason: "CLAIM_FAILED",
+    };
   }
 
-  const recoveryReason =
-    "Worker lease expired; attempt recovered after worker crash";
+  const notification = await prisma.notification.findUnique({
+    where: {
+      id: recoveryClaim.notificationId,
+    },
+    include: {
+      event: true,
+    },
+  });
 
- 
+  if (!notification) {
+    return {
+      recovered: false,
+      reason: "NOTIFICATION_NOT_FOUND",
+    };
+  }
+
+  const recoveryError = new Error(
+    "Worker lease expired; processing attempt abandoned"
+  );
+
+
+  const retryEligible = shouldRetry(
+    recoveryClaim.attemptNumber,
+    recoveryError
+  );
+
   const failed = await prisma.deliveryAttempt.updateMany({
     where: {
       id: recoveryClaim.attemptId,
@@ -105,43 +131,49 @@ const recoverStaleProcessingAttempt = async ({ attempt }) => {
     },
     data: {
       status: "FAILED",
-      errorReason: recoveryReason,
+      errorReason: recoveryError.message,
       workerClaimedAt: null,
       workerClaimToken: null,
     },
   });
 
   if (failed.count !== 1) {
-    return { recovered: false, reason: "OWNERSHIP_LOST" };
-  }
-
-  const retryEligible = shouldRetry(
-    recoveryClaim.attemptNumber,
-    new Error(recoveryReason)
-  );
-
-  if (!retryEligible) {
     return {
-      recovered: true,
-      retryScheduled: false,
-      reason: "MAX_ATTEMPTS_REACHED",
+      recovered: false,
+      reason: "OWNERSHIP_LOST",
     };
   }
 
-  
-  const retry = await createRetryAttempt({
-    currentAttempt: {
-      id: recoveryClaim.attemptId,
-      attemptNumber: recoveryClaim.attemptNumber,
-    },
+  if (retryEligible) {
+    const retry = await createRetryAttempt({
+      currentAttempt: {
+        id: recoveryClaim.attemptId,
+        attemptNumber: recoveryClaim.attemptNumber,
+      },
+    });
+
+    return {
+      recovered: true,
+      retryScheduled: true,
+      ...retry,
+    };
+  }
+
+  await moveNotificationToDLQ({
+    notification,
+    attemptCount: recoveryClaim.attemptNumber,
+    reason: "WORKER_CRASH",
+    lastError: recoveryError.message,
   });
 
   return {
     recovered: true,
-    retryScheduled: true,
-    ...retry,
+    retryScheduled: false,
+    movedToDLQ: true,
   };
 };
+
+
 
 
 export {
