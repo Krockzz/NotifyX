@@ -249,10 +249,9 @@ model DeliveryAttempt {
   created_at         DateTime       @default(now())
   nextRetryAt        DateTime?
   retryClaimedAt     DateTime?
-
-  // Worker ownership
   workerClaimedAt    DateTime?
   workerClaimToken   String?        @db.Uuid
+  retryClaimToken String? @db.Uuid
 
   notification Notification @relation( fields: [notificationId], references: [id], onDelete: Cascade )
 
