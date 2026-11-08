@@ -1,23 +1,30 @@
-import prisma from "../DB/index.js";
 
-import { sendEvent, connectProducer } from "../kafka/producer.js";
+import prisma from "../DB/index.js";
+import { randomUUID } from "node:crypto";
+
+import {
+    sendEvent,
+    connectProducer
+} from "../kafka/producer.js";
 
 const RETRY_POLL_INTERVAL = 5_000;
 const RETRY_CLAIM_TIMEOUT = 60_000;
-const MAX_ATTEMPTS = 3;
 
 await connectProducer();
+
+let isProcessing = false;
+
+
 
 const processRetry = async () => {
 
     const now = new Date();
 
     const staleBefore = new Date(
-        Date.now() - RETRY_CLAIM_TIMEOUT
+        now.getTime() - RETRY_CLAIM_TIMEOUT
     );
 
     const attempt = await prisma.deliveryAttempt.findFirst({
-
         where: {
             status: "FAILED",
 
@@ -26,14 +33,8 @@ const processRetry = async () => {
             },
 
             OR: [
-                {
-                    retryClaimedAt: null
-                },
-                {
-                    retryClaimedAt: {
-                        lt: staleBefore
-                    }
-                }
+                { retryClaimedAt: null },
+                { retryClaimedAt: { lt: staleBefore } }
             ]
         },
 
@@ -50,15 +51,16 @@ const processRetry = async () => {
         }
     });
 
-    if (!attempt) {
-        return;
-    }
+    if (!attempt) return;
+
+
+
+
+    const retryClaimToken = randomUUID();
 
     const claimed = await prisma.deliveryAttempt.updateMany({
-
         where: {
             id: attempt.id,
-
             status: "FAILED",
 
             nextRetryAt: {
@@ -66,38 +68,28 @@ const processRetry = async () => {
             },
 
             OR: [
-                {
-                    retryClaimedAt: null
-                },
-                {
-                    retryClaimedAt: {
-                        lt: staleBefore
-                    }
-                }
+                { retryClaimedAt: null },
+                { retryClaimedAt: { lt: staleBefore } }
             ]
         },
 
         data: {
-            retryClaimedAt: now
+            retryClaimedAt: now,
+            retryClaimToken
         }
     });
 
-    if (claimed.count === 0) {
-        return;
-    }
+    if (claimed.count !== 1) return;
 
-
-
-
-    // ==========================================
-    // NORMAL RETRY
-    // ==========================================
 
     const nextAttemptNumber =
         attempt.attemptNumber + 1;
 
     const topic =
         `naas-${attempt.notification.channelType.toLowerCase()}`;
+
+
+  
 
     try {
 
@@ -110,21 +102,6 @@ const processRetry = async () => {
             }
         );
 
-        await prisma.deliveryAttempt.update({
-            where: {
-                id: attempt.id
-            },
-
-            data: {
-                nextRetryAt: null,
-                retryClaimedAt: null
-            }
-        });
-
-        console.log(
-            `Retry #${nextAttemptNumber} published for notification ${attempt.notificationId}`
-        );
-
     } catch (error) {
 
         console.error(
@@ -132,32 +109,70 @@ const processRetry = async () => {
             error
         );
 
-        await prisma.deliveryAttempt.update({
+        // Release only if we still own the claim.
+        await prisma.deliveryAttempt.updateMany({
             where: {
-                id: attempt.id
+                id: attempt.id,
+                retryClaimToken
             },
 
             data: {
-                retryClaimedAt: null
+                retryClaimedAt: null,
+                retryClaimToken: null
             }
         });
+
+        return;
     }
+
+
+
+
+    const finalized = await prisma.deliveryAttempt.updateMany({
+        where: {
+            id: attempt.id,
+            retryClaimToken
+        },
+
+        data: {
+            nextRetryAt: null,
+            retryClaimedAt: null,
+            retryClaimToken: null
+        }
+    });
+
+    if (finalized.count !== 1) {
+        console.error(
+            `Retry claim ownership lost after Kafka publish for attempt ${attempt.id}`
+        );
+
+        return;
+    }
+
+    console.log(
+        `Retry #${nextAttemptNumber} published for notification ${attempt.notificationId}`
+    );
 };
+
 
 
 const startRetryScheduler = async () => {
 
     setInterval(async () => {
 
+        if (isProcessing) return;
+
+        isProcessing = true;
+
         try {
             await processRetry();
-        }
-
-        catch (err) {
+        } catch (error) {
             console.error(
-                "Some error happened have a look: ",
-                err
+                "Retry Scheduler error:",
+                error
             );
+        } finally {
+            isProcessing = false;
         }
 
     }, RETRY_POLL_INTERVAL);
