@@ -1,10 +1,11 @@
+
 import prisma from "../DB/index.js";
 
 const MAX_ATTEMPTS = 3;
 
 const RETRY_DELAYS = {
-    1: 10_000, // 10 seconds
-    2: 30_000  // 30 seconds
+    1: 10_000,
+    2: 30_000
 };
 
 const PERMANENT_ERROR_CODES = [
@@ -24,10 +25,8 @@ const PERMANENT_ERROR_MESSAGES = [
 ];
 
 const isPermanentError = (error) => {
-
     const errorCode = error?.code;
-    const errorMessage =
-        error?.message?.toLowerCase() || "";
+    const errorMessage = error?.message?.toLowerCase() || "";
 
     if (PERMANENT_ERROR_CODES.includes(errorCode)) {
         return true;
@@ -39,7 +38,6 @@ const isPermanentError = (error) => {
 };
 
 const shouldRetry = (attemptNumber, error) => {
-
     if (attemptNumber >= MAX_ATTEMPTS) {
         return false;
     }
@@ -59,25 +57,30 @@ const getRetryDelay = (attemptNumber) => {
     return RETRY_DELAYS[attemptNumber];
 };
 
-const createRetryAttempt = async ({
+
+
+const scheduleRetryAttempt = async ({
+    tx,
     currentAttempt
 }) => {
 
     const nextAttemptNumber =
-        getNextAttemptNumber(
-            currentAttempt.attemptNumber
-        );
+        getNextAttemptNumber(currentAttempt.attemptNumber);
 
     const retryDelay =
-        getRetryDelay(
-            currentAttempt.attemptNumber
+        getRetryDelay(currentAttempt.attemptNumber);
+
+    if (retryDelay === undefined) {
+        throw new Error(
+            `No retry delay configured for attempt ${currentAttempt.attemptNumber}`
         );
+    }
 
     const nextRetryAt = new Date(
         Date.now() + retryDelay
     );
 
-    await prisma.deliveryAttempt.update({
+    await tx.deliveryAttempt.update({
         where: {
             id: currentAttempt.id
         },
@@ -86,16 +89,32 @@ const createRetryAttempt = async ({
         }
     });
 
-    console.log(
-        `Retry #${nextAttemptNumber} scheduled for:`,
-        nextRetryAt
-    );
-
     return {
         nextAttemptNumber,
         nextRetryAt
     };
 };
+
+
+const createRetryAttempt = async ({
+    currentAttempt
+}) => {
+
+    const retry = await prisma.$transaction(async (tx) => {
+        return scheduleRetryAttempt({
+            tx,
+            currentAttempt
+        });
+    });
+
+    console.log(
+        `Retry #${retry.nextAttemptNumber} scheduled for:`,
+        retry.nextRetryAt
+    );
+
+    return retry;
+};
+
 
 export {
     MAX_ATTEMPTS,
@@ -103,5 +122,6 @@ export {
     getNextAttemptNumber,
     getRetryDelay,
     isPermanentError,
-    createRetryAttempt
+    createRetryAttempt,
+    scheduleRetryAttempt
 };
