@@ -6,21 +6,22 @@ dotenv.config({
     path: "../../.env"
 });
 
-const attemptId = "c1a39fa8-9e88-4a4b-b65a-02cfa8bf9d2d";
+const attemptId = "1bcd1fe6-28b3-44aa-965d-bb6c45826d75";
 
 const attempt = await prisma.deliveryAttempt.update({
   where: { id: attemptId },
   data: {
-    status: "FAILED",
-
-    nextRetryAt: new Date(Date.now() - 60_000),
-
-    retryClaimedAt: new Date(Date.now() - 120_000),
-
-    retryClaimToken: randomUUID(),
+    status: "PROCESSING",
+    workerClaimedAt: new Date(Date.now() - 120_000),
   },
 });
 
-console.log("Stale retry claim created:", attempt);
+console.log("Simulated crashed worker:", {
+  id: attempt.id,
+  status: attempt.status,
+  workerClaimedAt: attempt.workerClaimedAt,
+  workerClaimToken: attempt.workerClaimToken,
+});
 
 await prisma.$disconnect();
+

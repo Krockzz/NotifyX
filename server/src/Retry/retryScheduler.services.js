@@ -1,11 +1,6 @@
-
 import prisma from "../DB/index.js";
 import { randomUUID } from "node:crypto";
-
-import {
-    sendEvent,
-    connectProducer
-} from "../kafka/producer.js";
+import {sendEvent,connectProducer} from "../kafka/producer.js";
 
 const RETRY_POLL_INTERVAL = 5_000;
 const RETRY_CLAIM_TIMEOUT = 60_000;
@@ -56,9 +51,9 @@ const processRetry = async () => {
 
 
 
-    const retryClaimToken = randomUUID();
+  const retryClaimToken = randomUUID();
 
-    const claimed = await prisma.deliveryAttempt.updateMany({
+   const claimed = await prisma.deliveryAttempt.updateMany({
         where: {
             id: attempt.id,
             status: "FAILED",
