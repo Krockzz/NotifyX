@@ -19,6 +19,8 @@ const sendEmail = async ({
     body
 }) => {
     try {
+
+        //   console.log(process.env.SMTP_FROM_TESTING)
         const info = await transporter.sendMail({
             from: process.env.SMTP_FROM,
             to,
