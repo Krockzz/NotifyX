@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { replayDeadLetterController } from "./DlqReplay.controller.js";
-import { verifyApiKey } from "../middlewares/auth.api.middleware.js";
+import { verifyApiKey } from "../middlewares/verify-api.middlewars.js";
 
 const router = Router();
 
