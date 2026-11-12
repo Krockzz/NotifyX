@@ -1,4 +1,9 @@
 import prisma from "../DB/index.js";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+
 
 const replayDeadLetter = async ({ deadLetterId, appId }) => {
     return prisma.$transaction(async (tx) => {

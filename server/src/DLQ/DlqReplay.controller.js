@@ -1,22 +1,17 @@
+
 import { replayDeadLetter } from "./DlqReplay.services.js";
 
 const replayDeadLetterController = async (req, res) => {
     try {
         const { deadLetterId } = req.params;
 
-        const appId = req.appId;
-
-        if (!deadLetterId) {
-            return res.status(400).json({
-                success: false,
-                message: "Dead letter ID is required"
-            });
-        }
+        // Application authenticated by verifyApiKey
+        const appId = req.application?.id;
 
         if (!appId) {
             return res.status(401).json({
                 success: false,
-                message: "Unauthorized"
+                message: "Unauthorized application"
             });
         }
 

@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { replayDeadLetter } from "./DlqReplay.services";
-import {verifyJwt} from "../middlewares/auth.middlewares"
-
+import { replayDeadLetterController } from "./DlqReplay.controller.js";
+import { verifyApiKey } from "../middlewares/auth.api.middleware.js";
 
 const router = Router();
 
-router.route("/:deadLetterId/replay").post(verifyJwt, replayDeadLetter)
+router.post(
+    "/:deadLetterId/replay",
+    verifyApiKey,
+    replayDeadLetterController
+);
 
-
-export default router
+export default router;
