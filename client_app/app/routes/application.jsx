@@ -296,6 +296,60 @@ export async function action({ request, params }) {
     }
   }
 
+  if (intent === "update-event-type") {
+    const eventTypeId = String(formData.get("eventTypeId") || "").trim();
+    const eventCode = String(formData.get("eventCode") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const hasEntityGroupField = formData.has("entityGrpId");
+    const entityGrpId = String(formData.get("entityGrpId") || "").trim();
+    const invalid = (message) => data({ intent, success: false, message }, { status: 400 });
+
+    if (!appId) return invalid("An application ID is required.");
+    if (!eventTypeId) return invalid("An Event Type ID is required.");
+    if (!API_URI) {
+      return data({ intent, success: false, message: "The application service is not configured." }, { status: 500 });
+    }
+    if (!eventCode) return invalid("Enter an Event Type name.");
+    if (eventCode.length > 50) return invalid("Event Type names must be 50 characters or fewer.");
+
+    try {
+      const apiUrl = `${API_URI.replace(/\/+$/, "")}/api/v1/eventTypes/updateEventType/${encodeURIComponent(eventTypeId)}`;
+      const response = await fetch(apiUrl, {
+        method: "PATCH",
+        headers: getCookieHeaders(request, true),
+        credentials: "include",
+        body: JSON.stringify({
+          eventCode,
+          description: description || null,
+          ...(hasEntityGroupField ? { entityGrpId: entityGrpId || null } : {}),
+        }),
+      });
+
+      if ([401, 403].includes(response.status)) return redirect("/login");
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.success === false) {
+        return data({
+          intent,
+          success: false,
+          message: payload?.message || "Could not update this Event Type.",
+        }, { status: response.status || 500 });
+      }
+
+      return data({
+        intent,
+        success: true,
+        message: payload?.message || "Event Type updated successfully.",
+      });
+    } catch {
+      return data({
+        intent,
+        success: false,
+        message: "Unable to connect to the application service. Try again.",
+      }, { status: 502 });
+    }
+  }
+
   if (intent === "create-event-channel" || intent === "update-event-channel") {
     const channelType = String(formData.get("channelType") || "");
     const eventTypeId = String(formData.get("eventTypeId") || "");

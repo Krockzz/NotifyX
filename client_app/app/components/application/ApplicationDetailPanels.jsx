@@ -10,6 +10,7 @@ import {
   Layers3,
   ListChecks,
   LoaderCircle,
+  Pencil,
   Plus,
   Radio,
   RefreshCw,
@@ -673,6 +674,7 @@ export function EventTypesPanel({
   const handledResultRef = useRef(null);
   const handledDeactivationResultRef = useRef(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [formMode, setFormMode] = useState("create");
   const [deactivationDialogOpen, setDeactivationDialogOpen] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [validationError, setValidationError] = useState("");
@@ -685,8 +687,9 @@ export function EventTypesPanel({
   const detailUrl = `${actionUrl}?eventTypeId=`;
   const entityGroupsUrl = `${applicationUrl}/entities`;
   const detailView = new URLSearchParams(location.search).has("eventTypeId");
+  const formIntent = formMode === "edit" ? "update-event-type" : "create-event-type";
   const formError = hasSubmitted
-    && fetcher.data?.intent === "create-event-type"
+    && fetcher.data?.intent === formIntent
     && fetcher.data?.success === false
     ? fetcher.data.message
     : "";
@@ -714,7 +717,7 @@ export function EventTypesPanel({
     const result = fetcher.data;
     if (
       fetcher.state !== "idle"
-      || result?.intent !== "create-event-type"
+      || !["create-event-type", "update-event-type"].includes(result?.intent)
       || !result.success
       || handledResultRef.current === result
     ) {
@@ -726,7 +729,11 @@ export function EventTypesPanel({
     setDialogOpen(false);
     setHasSubmitted(false);
     setValidationError("");
-    setSuccessMessage(result.message || "Event Type created successfully.");
+    setSuccessMessage(result.message || (
+      result.intent === "update-event-type"
+        ? "Event Type updated successfully."
+        : "Event Type created successfully."
+    ));
   }, [fetcher.data, fetcher.state]);
 
   useEffect(() => {
@@ -755,6 +762,14 @@ export function EventTypesPanel({
   ]);
 
   function openCreateDialog() {
+    setFormMode("create");
+    setHasSubmitted(false);
+    setValidationError("");
+    setDialogOpen(true);
+  }
+
+  function openEditDialog() {
+    setFormMode("edit");
     setHasSubmitted(false);
     setValidationError("");
     setDialogOpen(true);
@@ -821,6 +836,12 @@ export function EventTypesPanel({
     } else {
       panelContent = (
         <div className="p-5 sm:p-6">
+          {successMessage && (
+            <p role="status" className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-3 text-sm text-emerald-300">
+              <Check size={15} aria-hidden="true" />
+              {successMessage}
+            </p>
+          )}
           <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-xl border border-border bg-surface-2/40 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Description</p>
@@ -1011,6 +1032,16 @@ export function EventTypesPanel({
             >
               ← All Event Types
             </Link>
+            {selectedEventType && (
+              <button
+                type="button"
+                onClick={openEditDialog}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3.5 text-sm font-medium text-slate-300 transition hover:border-violet-300/30 hover:bg-surface-2 hover:text-violet-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+              >
+                <Pencil size={15} aria-hidden="true" />
+                Edit
+              </button>
+            )}
             {selectedEventType?.isActive && (
               <button
                 type="button"
@@ -1065,14 +1096,18 @@ export function EventTypesPanel({
           onCancel={(event) => {
             if (isSubmitting) event.preventDefault();
           }}
-          aria-labelledby="create-event-type-title"
+          aria-labelledby="event-type-form-title"
           className="m-auto max-h-[min(90vh,720px)] w-[min(100%-2rem,520px)] rounded-2xl border border-border bg-surface-1 p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
         >
           <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
             <div>
-              <h2 id="create-event-type-title" className="text-base font-semibold text-slate-100">Create Event Type</h2>
+              <h2 id="event-type-form-title" className="text-base font-semibold text-slate-100">
+                {formMode === "edit" ? "Edit Event Type" : "Create Event Type"}
+              </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Define an event name and optionally associate it with an Entity Group.
+                {formMode === "edit"
+                  ? "Update the event name, description, or associated Entity Group."
+                  : "Define an event name and optionally associate it with an Entity Group."}
               </p>
             </div>
             <button
@@ -1087,7 +1122,10 @@ export function EventTypesPanel({
           </header>
 
           <fetcher.Form method="post" action={actionUrl} onSubmit={validateForm} className="max-h-[calc(90vh-80px)] overflow-y-auto p-5 sm:p-6">
-            <input type="hidden" name="intent" value="create-event-type" />
+            <input type="hidden" name="intent" value={formIntent} />
+            {formMode === "edit" && (
+              <input type="hidden" name="eventTypeId" value={selectedEventType?.id || ""} />
+            )}
 
             <label htmlFor="event-type-code" className="mb-1.5 block text-xs font-medium text-slate-300">
               Event Type name
@@ -1095,6 +1133,7 @@ export function EventTypesPanel({
             <input
               id="event-type-code"
               name="eventCode"
+              defaultValue={formMode === "edit" ? selectedEventType?.eventCode || "" : ""}
               maxLength={50}
               required
               autoComplete="off"
@@ -1113,6 +1152,7 @@ export function EventTypesPanel({
               id="event-type-description"
               name="description"
               rows={3}
+              defaultValue={formMode === "edit" ? selectedEventType?.description || "" : ""}
               placeholder="Triggered when a customer successfully places an order."
               className="mb-4 w-full resize-y rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15"
             />
@@ -1123,7 +1163,8 @@ export function EventTypesPanel({
             <select
               id="event-type-entity-group"
               name="entityGrpId"
-              defaultValue=""
+              defaultValue={formMode === "edit" ? selectedEventType?.entityGrp?.id || "" : ""}
+              disabled={formMode === "edit" && Boolean(entityGroupsError)}
               className="min-h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-100 outline-none focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15"
             >
               <option value="">No Entity Group</option>
@@ -1134,6 +1175,10 @@ export function EventTypesPanel({
             {entityGroups.length > 0 ? (
               <p className="mb-4 mt-1.5 text-[11px] leading-5 text-slate-500">
                 Choose a group to associate related events with the same entity.
+              </p>
+            ) : entityGroupsError && formMode === "edit" ? (
+              <p className="mb-4 mt-1.5 text-[11px] leading-5 text-amber-200/80">
+                Entity Groups could not be loaded. The existing association will be preserved; you can still update the other fields.
               </p>
             ) : entityGroupsError ? (
               <p className="mb-4 mt-1.5 text-[11px] leading-5 text-amber-200/80">
@@ -1172,7 +1217,9 @@ export function EventTypesPanel({
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-60"
               >
                 {isSubmitting && <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />}
-                {isSubmitting ? "Creating…" : "Create Event Type"}
+                {isSubmitting
+                  ? (formMode === "edit" ? "Saving…" : "Creating…")
+                  : (formMode === "edit" ? "Save changes" : "Create Event Type")}
               </button>
             </footer>
           </fetcher.Form>
