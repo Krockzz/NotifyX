@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, BellRing, Check, Code2, Copy, Layers3, ListChecks, LoaderCircle, Plus, Radio, Settings2, X } from "lucide-react";
-import { Link } from "react-router";
+import {
+  Activity,
+  AlertCircle,
+  BellRing,
+  Check,
+  Clock3,
+  Code2,
+  Copy,
+  Layers3,
+  ListChecks,
+  LoaderCircle,
+  Plus,
+  Radio,
+  RefreshCw,
+  Settings2,
+  X,
+} from "lucide-react";
+import { Link, useFetcher, useNavigation, useRevalidator } from "react-router";
 import { createPortal } from "react-dom";
 
 const API_URI = import.meta.env.VITE_API_URL;
@@ -434,8 +450,388 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
   </>;
 }
 
-export function EventTypesPanel() {
-  return <SectionPanel icon={ListChecks} eyebrow="Events" title="Event Types" description="Define and review the named events your application sends to NotifyX." />;
+function formatEventTypeDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function EventTypeCard({ eventType }) {
+  const statusClasses = eventType.isActive
+    ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300"
+    : "border-border bg-surface-2/50 text-slate-500";
+
+  return (
+    <article className="rounded-xl border border-border bg-surface-1 p-4 transition-colors duration-200 hover:border-violet-300/25 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="break-all font-mono text-sm font-semibold text-slate-100">{eventType.eventCode}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            {eventType.description || "No description provided."}
+          </p>
+        </div>
+        <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusClasses}`}>
+          <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+          {eventType.isActive ? "Active" : "Inactive"}
+        </span>
+      </div>
+
+      <footer className="mt-4 flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Entity Group</p>
+          <p className="mt-1 text-xs text-slate-300">{eventType.entityGrp?.name || "Not assigned"}</p>
+          {eventType.entityGrp?.entityIdPath && (
+            <code className="mt-1 block break-all font-mono text-[10px] text-slate-500">
+              {eventType.entityGrp.entityIdPath}
+            </code>
+          )}
+        </div>
+        <p className="inline-flex items-center gap-1.5 text-[10px] text-slate-600">
+          <Clock3 size={12} aria-hidden="true" />
+          Created {formatEventTypeDate(eventType.created_at)}
+        </p>
+      </footer>
+    </article>
+  );
+}
+
+export function EventTypesPanel({
+  appId,
+  eventTypes = [],
+  eventTypesError = "",
+  entityGroups = [],
+  entityGroupsError = "",
+  application,
+  user,
+}) {
+  const fetcher = useFetcher();
+  const navigation = useNavigation();
+  const revalidator = useRevalidator();
+  const dialogRef = useRef(null);
+  const handledResultRef = useRef(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [validationError, setValidationError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const isSubmitting = fetcher.state !== "idle";
+  const isLoading = navigation.state === "loading" || revalidator.state === "loading";
+  const applicationUrl = `/dashboard/${encodeURIComponent(appId)}`;
+  const actionUrl = `${applicationUrl}/events`;
+  const entityGroupsUrl = `${applicationUrl}/entities`;
+  const formError = hasSubmitted
+    && fetcher.data?.intent === "create-event-type"
+    && fetcher.data?.success === false
+    ? fetcher.data.message
+    : "";
+
+  useEffect(() => {
+    if (dialogOpen && dialogRef.current && !dialogRef.current.open) {
+      dialogRef.current.showModal();
+    }
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!successMessage) return undefined;
+
+    const timeout = window.setTimeout(() => setSuccessMessage(""), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
+
+  useEffect(() => {
+    const result = fetcher.data;
+    if (
+      fetcher.state !== "idle"
+      || result?.intent !== "create-event-type"
+      || !result.success
+      || handledResultRef.current === result
+    ) {
+      return;
+    }
+
+    handledResultRef.current = result;
+    dialogRef.current?.close();
+    setDialogOpen(false);
+    setHasSubmitted(false);
+    setValidationError("");
+    setSuccessMessage(result.message || "Event Type created successfully.");
+  }, [fetcher.data, fetcher.state]);
+
+  function openCreateDialog() {
+    setHasSubmitted(false);
+    setValidationError("");
+    setDialogOpen(true);
+  }
+
+  function closeCreateDialog() {
+    if (isSubmitting) return;
+
+    dialogRef.current?.close();
+    setDialogOpen(false);
+    setHasSubmitted(false);
+    setValidationError("");
+  }
+
+  function validateForm(event) {
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const eventCode = String(formData.get("eventCode") || "").trim();
+    setHasSubmitted(true);
+
+    if (!eventCode) {
+      event.preventDefault();
+      setValidationError("Enter an Event Type name.");
+      return;
+    }
+
+    if (eventCode.length > 50) {
+      event.preventDefault();
+      setValidationError("Event Type names must be 50 characters or fewer.");
+      return;
+    }
+
+    setValidationError("");
+  }
+
+  return (
+    <>
+      <SectionPanel
+        icon={ListChecks}
+        eyebrow="Events"
+        title="Event Types"
+        description="Define the named events your application can send to NotifyX."
+        action={(
+          <button
+            type="button"
+            onClick={openCreateDialog}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white shadow-lg shadow-violet-950/20 transition hover:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+          >
+            <Plus size={16} aria-hidden="true" />
+            Create Event Type
+          </button>
+        )}
+      >
+        <div className="p-5 sm:p-6">
+          {successMessage && (
+            <p role="status" className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-3 text-sm text-emerald-300">
+              <Check size={15} aria-hidden="true" />
+              {successMessage}
+            </p>
+          )}
+
+          {entityGroupsError && (
+            <div className="mb-5 flex flex-col gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p role="status" className="text-xs leading-5 text-amber-200/80">
+                Entity Groups could not be loaded. You can still create an Event Type without assigning a group.
+              </p>
+              <Link to={entityGroupsUrl} state={{ application, user }} className="shrink-0 text-xs font-medium text-violet-200 hover:text-violet-100">
+                Open Entity Groups
+              </Link>
+            </div>
+          )}
+
+          {eventTypesError ? (
+            <div role="alert" className="grid min-h-56 place-items-center px-4 text-center">
+              <div className="max-w-md">
+                <AlertCircle size={20} className="mx-auto text-rose-300" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-rose-300">Unable to load Event Types</p>
+                <p className="mt-2 text-xs leading-5 text-slate-400">{eventTypesError}</p>
+                <button
+                  type="button"
+                  onClick={() => revalidator.revalidate()}
+                  className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs text-slate-300 transition hover:bg-surface-2"
+                >
+                  <RefreshCw size={13} aria-hidden="true" />
+                  Try again
+                </button>
+              </div>
+            </div>
+          ) : isLoading ? (
+            <div className="grid min-h-56 place-items-center">
+              <p role="status" className="inline-flex items-center gap-2 text-sm text-slate-400">
+                <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+                Loading Event Types…
+              </p>
+            </div>
+          ) : eventTypes.length > 0 ? (
+            <>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
+                  {eventTypes.length} {eventTypes.length === 1 ? "Event Type" : "Event Types"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => revalidator.revalidate()}
+                  disabled={revalidator.state !== "idle"}
+                  className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs text-slate-500 transition hover:bg-surface-2 hover:text-slate-300 disabled:opacity-50"
+                >
+                  <RefreshCw size={12} aria-hidden="true" />
+                  Refresh
+                </button>
+              </div>
+              <div className="grid gap-3">
+                {eventTypes.map((eventType) => (
+                  <EventTypeCard key={eventType.id} eventType={eventType} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="grid min-h-64 place-items-center rounded-xl border border-dashed border-border bg-surface-2/20 px-5 py-10 text-center">
+              <div className="max-w-sm">
+                <span className="mx-auto grid size-11 place-items-center rounded-xl border border-violet-300/15 bg-violet-300/[0.06] text-violet-200">
+                  <ListChecks size={18} aria-hidden="true" />
+                </span>
+                <h2 className="mt-4 text-sm font-semibold text-slate-200">No Event Types yet</h2>
+                <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                  Create an Event Type to define a named event your application can send, such as{" "}
+                  <code className="font-mono text-violet-200">ORDER_CREATED</code>.
+                </p>
+                <button
+                  type="button"
+                  onClick={openCreateDialog}
+                  className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-xs font-medium text-white transition hover:bg-violet-500"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Create Event Type
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </SectionPanel>
+
+      {dialogOpen && (
+        <dialog
+          ref={dialogRef}
+          onClose={() => setDialogOpen(false)}
+          onCancel={(event) => {
+            if (isSubmitting) event.preventDefault();
+          }}
+          aria-labelledby="create-event-type-title"
+          className="m-auto max-h-[min(90vh,720px)] w-[min(100%-2rem,520px)] rounded-2xl border border-border bg-surface-1 p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
+        >
+          <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+            <div>
+              <h2 id="create-event-type-title" className="text-base font-semibold text-slate-100">Create Event Type</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Define an event name and optionally associate it with an Entity Group.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeCreateDialog}
+              disabled={isSubmitting}
+              aria-label="Close dialog"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition hover:bg-surface-2 hover:text-slate-200 disabled:opacity-50"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </header>
+
+          <fetcher.Form method="post" action={actionUrl} onSubmit={validateForm} className="max-h-[calc(90vh-80px)] overflow-y-auto p-5 sm:p-6">
+            <input type="hidden" name="intent" value="create-event-type" />
+
+            <label htmlFor="event-type-code" className="mb-1.5 block text-xs font-medium text-slate-300">
+              Event Type name
+            </label>
+            <input
+              id="event-type-code"
+              name="eventCode"
+              maxLength={50}
+              required
+              autoComplete="off"
+              placeholder="ORDER_CREATED"
+              aria-describedby="event-type-code-help"
+              className="min-h-10 w-full rounded-lg border border-border bg-surface-2 px-3 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15"
+            />
+            <p id="event-type-code-help" className="mb-4 mt-1.5 text-[11px] leading-5 text-slate-500">
+              Use a clear name for the event your application emits. Maximum 50 characters.
+            </p>
+
+            <label htmlFor="event-type-description" className="mb-1.5 block text-xs font-medium text-slate-300">
+              Description <span className="font-normal text-slate-600">(optional)</span>
+            </label>
+            <textarea
+              id="event-type-description"
+              name="description"
+              rows={3}
+              placeholder="Triggered when a customer successfully places an order."
+              className="mb-4 w-full resize-y rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15"
+            />
+
+            <label htmlFor="event-type-entity-group" className="mb-1.5 block text-xs font-medium text-slate-300">
+              Entity Group <span className="font-normal text-slate-600">(optional)</span>
+            </label>
+            <select
+              id="event-type-entity-group"
+              name="entityGrpId"
+              defaultValue=""
+              className="min-h-10 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-100 outline-none focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15"
+            >
+              <option value="">No Entity Group</option>
+              {entityGroups.map((entityGroup) => (
+                <option key={entityGroup.id} value={entityGroup.id}>{entityGroup.name}</option>
+              ))}
+            </select>
+            {entityGroups.length > 0 ? (
+              <p className="mb-4 mt-1.5 text-[11px] leading-5 text-slate-500">
+                Choose a group to associate related events with the same entity.
+              </p>
+            ) : entityGroupsError ? (
+              <p className="mb-4 mt-1.5 text-[11px] leading-5 text-amber-200/80">
+                Entity Groups could not be loaded. You can continue without a group or open the{" "}
+                <Link to={entityGroupsUrl} state={{ application, user }} className="text-violet-200 hover:text-violet-100">
+                  Entity Groups section
+                </Link>.
+              </p>
+            ) : (
+              <p className="mb-4 mt-1.5 text-[11px] leading-5 text-slate-500">
+                No Entity Groups are available. You can create one in the{" "}
+                <Link to={entityGroupsUrl} state={{ application, user }} className="text-violet-200 hover:text-violet-100">
+                  Entity Groups section
+                </Link>.
+              </p>
+            )}
+
+            {(validationError || formError) && (
+              <p role="alert" className="mb-4 rounded-lg border border-rose-300/15 bg-rose-300/[0.05] px-3 py-2.5 text-xs leading-5 text-rose-300">
+                {validationError || formError}
+              </p>
+            )}
+
+            <footer className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCreateDialog}
+                disabled={isSubmitting}
+                className="min-h-10 rounded-lg border border-border px-4 text-sm text-slate-300 transition hover:bg-surface-2 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isSubmitting && <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />}
+                {isSubmitting ? "Creating…" : "Create Event Type"}
+              </button>
+            </footer>
+          </fetcher.Form>
+        </dialog>
+      )}
+    </>
+  );
 }
 
 export function ChannelsPanel() {

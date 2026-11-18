@@ -25,6 +25,17 @@ function getCookieHeaders(request, includeJson = false) {
   };
 }
 
+async function fetchJson(url, request) {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: getCookieHeaders(request),
+    credentials: "include",
+  });
+  const payload = await response.json().catch(() => null);
+
+  return { response, payload };
+}
+
 function ApplicationUnavailableState({ notFound = false }) {
   return (
     <main className="grid min-h-[65vh] place-items-center px-5 text-center">
@@ -43,6 +54,67 @@ function ApplicationUnavailableState({ notFound = false }) {
 }
 
 export async function loader({ request, params }) {
+  if (params.tab === "events") {
+    const appId = params.appId;
+    const emptyResult = {
+      eventTypes: [],
+      eventTypesError: "",
+      eventTypeGroups: [],
+      eventTypeGroupsError: "",
+    };
+
+    if (!appId) {
+      return data({
+        ...emptyResult,
+        eventTypesError: "An application ID is required to load Event Types.",
+      });
+    }
+
+    if (!API_URI) {
+      return data({
+        ...emptyResult,
+        eventTypesError: "The application service is not configured.",
+      });
+    }
+
+    try {
+      const apiBaseUrl = API_URI.replace(/\/+$/, "");
+      const [eventTypesResult, entityGroupsResult] = await Promise.all([
+        fetchJson(`${apiBaseUrl}/api/v1/eventTypes/getEventTypes/${encodeURIComponent(appId)}`, request),
+        fetchJson(`${apiBaseUrl}/api/v1/Entity/get-entity/${encodeURIComponent(appId)}`, request),
+      ]);
+      const statuses = [eventTypesResult.response.status, entityGroupsResult.response.status];
+
+      if (statuses.some((status) => [401, 403].includes(status))) {
+        return redirect("/login");
+      }
+
+      const eventTypesValid = eventTypesResult.response.ok
+        && eventTypesResult.payload?.success !== false
+        && Array.isArray(eventTypesResult.payload?.data);
+      const entityGroupsValid = entityGroupsResult.response.ok
+        && entityGroupsResult.payload?.success !== false
+        && Array.isArray(entityGroupsResult.payload?.data);
+
+      return data({
+        eventTypes: eventTypesValid ? eventTypesResult.payload.data : [],
+        eventTypesError: eventTypesValid
+          ? ""
+          : eventTypesResult.payload?.message || "Could not load Event Types for this application.",
+        eventTypeGroups: entityGroupsValid ? entityGroupsResult.payload.data : [],
+        eventTypeGroupsError: entityGroupsValid
+          ? ""
+          : entityGroupsResult.payload?.message || "Could not load Entity Groups for this application.",
+      });
+    } catch {
+      return data({
+        ...emptyResult,
+        eventTypesError: "Unable to connect to the application service. Try again later.",
+        eventTypeGroupsError: "Unable to connect to the application service. Try again later.",
+      });
+    }
+  }
+
   if (params.tab === "entities") {
     const appId = params.appId;
     if (!appId) return data({ entityGroups: [], entityGroupsError: "An application ID is required.", selectedEntityGroup: null, entityGroupError: "" });
@@ -133,6 +205,58 @@ export async function action({ request, params }) {
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
   const appId = params.appId;
+
+  if (intent === "create-event-type") {
+    const eventCode = String(formData.get("eventCode") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const entityGrpId = String(formData.get("entityGrpId") || "").trim();
+    const invalid = (message) => data({ intent, success: false, message }, { status: 400 });
+
+    if (!appId) return invalid("An application ID is required.");
+    if (!API_URI) {
+      return data({ intent, success: false, message: "The application service is not configured." }, { status: 500 });
+    }
+    if (!eventCode) return invalid("Enter an Event Type name.");
+    if (eventCode.length > 50) return invalid("Event Type names must be 50 characters or fewer.");
+
+    try {
+      const apiUrl = `${API_URI.replace(/\/+$/, "")}/api/v1/eventTypes/createEvent/${encodeURIComponent(appId)}`;
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: getCookieHeaders(request, true),
+        credentials: "include",
+        body: JSON.stringify({
+          eventCode,
+          description: description || null,
+          entityGrpId: entityGrpId || null,
+        }),
+      });
+
+      if ([401, 403].includes(response.status)) return redirect("/login");
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.success === false) {
+        return data({
+          intent,
+          success: false,
+          message: payload?.message || "Could not create the Event Type.",
+        }, { status: response.status || 500 });
+      }
+
+      return data({
+        intent,
+        success: true,
+        message: payload?.message || "Event Type created successfully.",
+      });
+    } catch {
+      return data({
+        intent,
+        success: false,
+        message: "Unable to connect to the application service. Try again.",
+      }, { status: 502 });
+    }
+  }
+
   const entityGroupId = String(formData.get("entityGroupId") || "");
   const name = String(formData.get("name") || "").trim();
   const entityIdPath = String(formData.get("entityIdPath") || "").trim();
@@ -175,7 +299,18 @@ export async function action({ request, params }) {
 
 export default function ApplicationDetail() {
   const { appId, tab } = useParams();
-  const { apiKeys = [], apiKeysError = "", entityGroups = [], entityGroupsError = "", selectedEntityGroup = null, entityGroupError = "" } = useLoaderData();
+  const {
+    apiKeys = [],
+    apiKeysError = "",
+    entityGroups = [],
+    entityGroupsError = "",
+    selectedEntityGroup = null,
+    entityGroupError = "",
+    eventTypes = [],
+    eventTypesError = "",
+    eventTypeGroups = [],
+    eventTypeGroupsError = "",
+  } = useLoaderData();
   const location = useLocation();
   const locationState = location.state || {};
   const candidate = locationState.application;
@@ -201,7 +336,17 @@ export default function ApplicationDetail() {
               <div className="application-detail-panel-enter">
                 {currentSection === "keys" && <ApiKeysPanel key={appId} appId={appId} apiKeys={apiKeys} apiKeysError={apiKeysError} />}
                 {currentSection === "entities" && <EntityGroupsPanel key={appId} appId={appId} entityGroups={entityGroups} entityGroupsError={entityGroupsError} selectedEntityGroup={selectedEntityGroup} entityGroupError={entityGroupError} application={application} user={locationState.user} />}
-                {currentSection === "events" && <EventTypesPanel />}
+                {currentSection === "events" && (
+                  <EventTypesPanel
+                    appId={appId}
+                    eventTypes={eventTypes}
+                    eventTypesError={eventTypesError}
+                    entityGroups={eventTypeGroups}
+                    entityGroupsError={eventTypeGroupsError}
+                    application={application}
+                    user={locationState.user}
+                  />
+                )}
                 {currentSection === "channels" && <ChannelsPanel />}
                 {currentSection === "activity" && <ActivityPanel />}
                 {currentSection === "settings" && <SettingsPanel />}
