@@ -3,15 +3,8 @@ import DashboardNavbar from "../components/dashboard/DashboardNavbar.jsx";
 import ApplicationDetailHeader from "../components/application/ApplicationDetailHeader.jsx";
 import ApplicationSidebar from "../components/application/ApplicationSidebar.jsx";
 import EntityGroupsPanel from "../components/application/EntityGroupsPanel.jsx";
-import {
-  ActivityPanel,
-  ApiKeysPanel,
-  ApplicationStats,
-  ChannelsPanel,
-  EventTypesPanel,
-  OverviewPanel,
-  SettingsPanel,
-} from "../components/application/ApplicationDetailPanels.jsx";
+import { ActivityPanel, ApiKeysPanel, ApplicationStats,ChannelsPanel, 
+  EventTypesPanel, OverviewPanel, SettingsPanel,} from "../components/application/ApplicationDetailPanels.jsx";
 
 const sections = new Set(["keys", "entities", "events", "channels", "activity", "settings"]);
 const API_URI = import.meta.env.VITE_API_URL;

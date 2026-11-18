@@ -7,7 +7,7 @@ const router = new Router();
 router.route("/createEvent/:appId").post(verifyJwt, createEventType )
 router.route("/getEventTypes/:appId").get(verifyJwt , getEventTypes)
 router.route("/getEventTypeById/:eventTypeId").get(verifyJwt , getEventTypeById)
-router.route("/updateEventType/:eventTypeId").get(verifyJwt , updateEventType)
+router.route("/updateEventType/:eventTypeId").patch(verifyJwt , updateEventType)
 router.route("/deleteEventType/:eventTypeId").post(verifyJwt , deleteEventType)
 
 
