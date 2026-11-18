@@ -21,7 +21,6 @@ import {
 import { Link, useFetcher, useLocation, useNavigate, useNavigation, useRevalidator } from "react-router";
 import { createPortal } from "react-dom";
 
-const API_URI = import.meta.env.VITE_API_URL;
 const EMPTY_API_KEYS = [];
 
 function SummaryCard({ label, value, detail, icon: Icon, accent = "violet" }) {
@@ -120,10 +119,12 @@ export function SectionPanel({ icon: Icon, eyebrow, title, description, children
   );
 }
 
-export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "" }) {
+export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "", actionUrl }) {
+  const createFetcher = useFetcher();
+  const revokeFetcher = useFetcher();
   const [keys, setKeys] = useState(apiKeys);
   const [listError, setListError] = useState(apiKeysError);
-  const [loading, setLoading] = useState(false);
+  const loading = createFetcher.state !== "idle";
   const [newPlainTextKey, setNewPlainTextKey] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -142,10 +143,80 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
   const modalTriggerRef = useRef(null);
   const previousFocusRef = useRef(null);
   const activeModalRef = useRef(null);
+  const handledCreateResultRef = useRef(null);
+  const handledRevokeResultRef = useRef(null);
   const loadingRef = useRef(loading);
   loadingRef.current = loading || Boolean(revokingKeyId);
 
   useEffect(() => () => window.clearTimeout(successTimeoutRef.current), []);
+
+  useEffect(() => {
+    const result = createFetcher.data;
+    if (
+      createFetcher.state !== "idle"
+      || result?.intent !== "create-api-key"
+      || handledCreateResultRef.current === result
+    ) {
+      return;
+    }
+
+    handledCreateResultRef.current = result;
+    if (!result.success) {
+      setCreateError(result.message || "Could not generate an API key. Please try again.");
+      return;
+    }
+
+    if (typeof result.apiKey !== "string" || !result.apiKey || !result.keyRecord?.id) {
+      setCreateError("The service response did not include the saved API key details.");
+      return;
+    }
+
+    setKeys((currentKeys) => [result.keyRecord, ...currentKeys.filter((key) => key.id !== result.keyRecord.id)]);
+    setListError("");
+    setNewPlainTextKey(result.apiKey);
+    setCopied(false);
+    setCopyError("");
+    setShowCreateModal(false);
+    setNewKeyName("");
+    setCreateError("");
+    setShowModal(true);
+  }, [createFetcher.data, createFetcher.state]);
+
+  useEffect(() => {
+    const result = revokeFetcher.data;
+    if (
+      revokeFetcher.state !== "idle"
+      || result?.intent !== "revoke-api-key"
+      || handledRevokeResultRef.current === result
+    ) {
+      return;
+    }
+
+    handledRevokeResultRef.current = result;
+    setRevokingKeyId(null);
+
+    if (!result.success) {
+      setRevokeFeedback(result.message || "Could not revoke this API key. Please try again.");
+      return;
+    }
+
+    const updatedKey = result.keyRecord;
+    if (!updatedKey || typeof updatedKey !== "object" || !updatedKey.revokedAt || !selectedKey) {
+      setRevokeFeedback("The service did not return the revoked API key record.");
+      return;
+    }
+
+    const revokedName = selectedKey.name || selectedKey.keyPrefix || "API key";
+    setKeys((currentKeys) => currentKeys.map((key) => (
+      String(key.id) === String(selectedKey.id) ? { ...key, ...updatedKey } : key
+    )));
+    setShowRevokeModal(false);
+    setSelectedKey(null);
+    setRevokeFeedback("");
+    setSuccessMessage(`API key “${revokedName}” has been revoked.`);
+    window.clearTimeout(successTimeoutRef.current);
+    successTimeoutRef.current = window.setTimeout(() => setSuccessMessage(""), 4500);
+  }, [revokeFetcher.data, revokeFetcher.state, selectedKey]);
 
   useEffect(() => {
     setKeys(apiKeys);
@@ -219,7 +290,7 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
     };
   }, [activeModal]);
 
-  async function createApiKey(event) {
+  function createApiKey(event) {
     event.preventDefault();
     if (!appId || loading) return;
     const name = newKeyName.trim();
@@ -228,51 +299,11 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
       return;
     }
 
-    setLoading(true);
     setCreateError("");
-
-    try {
-      if (!API_URI) throw new Error("The application service is not configured.");
-      const response = await fetch(`${API_URI.replace(/\/+$/, "")}/api/v1/apiKey/create-api-key/${appId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name }),
-      });
-
-      let payload;
-      try {
-        payload = await response.json();
-      } catch {
-        throw new Error(response.ok ? "The service returned an unreadable response." : `Could not create an API key (HTTP ${response.status}).`);
-      }
-      if (!response.ok || payload.success === false) {
-        throw new Error(payload.message || "Could not generate an API key. Please try again.");
-      }
-
-      const responseData = payload.data || {};
-      const apiKey = responseData.apiKey;
-      const keyRecord = responseData.key;
-      if (typeof apiKey !== "string" || !apiKey) {
-        throw new Error("The service response did not include an API key.");
-      }
-      if (!keyRecord?.id || !keyRecord?.keyPrefix) {
-        throw new Error("The service response did not include the saved API key details.");
-      }
-
-      setKeys((currentKeys) => [keyRecord, ...currentKeys.filter((key) => key.id !== keyRecord.id)]);
-      setListError("");
-      setNewPlainTextKey(apiKey);
-      setCopied(false);
-      setCopyError("");
-      setShowCreateModal(false);
-      setNewKeyName("");
-      setShowModal(true);
-    } catch (requestError) {
-      setCreateError(requestError.message || "Could not generate an API key. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    const formData = new FormData(event.currentTarget);
+    formData.set("intent", "create-api-key");
+    formData.set("name", name);
+    createFetcher.submit(formData, { method: "post", action: actionUrl });
   }
 
   function dismissReveal() {
@@ -311,47 +342,16 @@ export function ApiKeysPanel({ appId, apiKeys = EMPTY_API_KEYS, apiKeysError = "
     setShowRevokeModal(true);
   }
 
-  async function revokeApiKey(keyId) {
+  function revokeApiKey(keyId) {
     if (!appId || !selectedKey || loading || revokingKeyId) return;
     if (String(selectedKey.id) !== String(keyId)) return;
 
     setRevokingKeyId(String(keyId));
     setRevokeFeedback("");
-
-    try {
-      if (!API_URI) throw new Error("The application service is not configured.");
-      const response = await fetch(`${API_URI.replace(/\/+$/, "")}/api/v1/apiKey/revoke-api-key/${encodeURIComponent(appId)}/${encodeURIComponent(selectedKey.id)}`, {
-        method: "POST",
-        headers: { Accept: "application/json" },
-        credentials: "include",
-      });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || payload?.success === false) {
-        throw new Error(payload?.message || `Could not revoke this API key (HTTP ${response.status}).`);
-      }
-
-      const responseData = payload?.data || payload || {};
-      const updatedKey = responseData.key || responseData.apiKeyRecord || responseData.updatedKey || responseData.apiKey || responseData;
-      if (!updatedKey || typeof updatedKey !== "object" || !updatedKey.revokedAt) {
-        throw new Error("The service did not return the revoked API key record.");
-      }
-
-      const revokedName = selectedKey.name || selectedKey.keyPrefix || "API key";
-      setKeys((currentKeys) => currentKeys.map((key) => (
-        String(key.id) === String(selectedKey.id) ? { ...key, ...updatedKey } : key
-      )));
-      setShowRevokeModal(false);
-      setSelectedKey(null);
-      setRevokeFeedback("");
-      setSuccessMessage(`API key “${revokedName}” has been revoked.`);
-      window.clearTimeout(successTimeoutRef.current);
-      successTimeoutRef.current = window.setTimeout(() => setSuccessMessage(""), 4500);
-    } catch (requestError) {
-      setRevokeFeedback(requestError.message || "Could not revoke this API key. Please try again.");
-    } finally {
-      setRevokingKeyId(null);
-    }
+    const formData = new FormData();
+    formData.set("intent", "revoke-api-key");
+    formData.set("keyId", String(selectedKey.id));
+    revokeFetcher.submit(formData, { method: "post", action: actionUrl });
   }
 
   return <>
