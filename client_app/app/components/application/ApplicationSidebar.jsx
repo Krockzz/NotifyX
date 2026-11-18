@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Code2, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
+import { Activity, Boxes, Code2, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
 import { Link } from "react-router";
 
 const items = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "keys", label: "API Keys", icon: Code2 },
+  { id: "entities", label: "Entity Groups", icon: Boxes },
   { id: "events", label: "Event Types", icon: ListChecks },
   { id: "channels", label: "Channels", icon: Radio },
   { id: "activity", label: "Activity / Logs", icon: Activity },

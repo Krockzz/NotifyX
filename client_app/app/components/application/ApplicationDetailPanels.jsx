@@ -85,7 +85,7 @@ export function OverviewPanel({ appId, application, user }) {
   );
 }
 
-function SectionPanel({ icon: Icon, eyebrow, title, description, children, action }) {
+export function SectionPanel({ icon: Icon, eyebrow, title, description, children, action }) {
   return (
     <section className="min-w-0" aria-labelledby="section-page-title">
       <header className="mb-6 flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">

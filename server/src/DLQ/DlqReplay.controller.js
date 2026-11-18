@@ -59,8 +59,6 @@ const getDeadLetters = async ({  appId, page = 1, limit = 10,status,channelType}
 };
 
 
-import { getDeadLetters } from "./DLQInspection.services.js";
-
 const getDeadLettersController = async (req, res) => {
     try {
         const appId = req.application?.id;
