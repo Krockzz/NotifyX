@@ -10,6 +10,7 @@ export default [
     route("keys", "routes/application/api-keys.jsx"),
     route("entities", "routes/application/entity-groups.jsx"),
     route("events", "routes/application/event-types.jsx"),
+    route("templates", "routes/application/templates.jsx"),
     route("channels", "routes/application/channels.jsx"),
     route("activity", "routes/application/activity.jsx"),
     route("settings", "routes/application/settings.jsx"),
