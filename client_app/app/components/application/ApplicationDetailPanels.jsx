@@ -14,9 +14,10 @@ import {
   Radio,
   RefreshCw,
   Settings2,
+  Trash2,
   X,
 } from "lucide-react";
-import { Link, useFetcher, useNavigation, useRevalidator } from "react-router";
+import { Link, useFetcher, useLocation, useNavigate, useNavigation, useRevalidator } from "react-router";
 import { createPortal } from "react-dom";
 
 const API_URI = import.meta.env.VITE_API_URL;
@@ -463,7 +464,7 @@ function formatEventTypeDate(value) {
   }).format(date);
 }
 
-function EventTypeCard({ eventType }) {
+function EventTypeCard({ eventType, detailUrl, application, user }) {
   const statusClasses = eventType.isActive
     ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300"
     : "border-border bg-surface-2/50 text-slate-500";
@@ -497,7 +498,153 @@ function EventTypeCard({ eventType }) {
           <Clock3 size={12} aria-hidden="true" />
           Created {formatEventTypeDate(eventType.created_at)}
         </p>
+        <Link
+          to={detailUrl + encodeURIComponent(eventType.id)}
+          state={{ application, user }}
+          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-slate-300 transition hover:border-violet-300/30 hover:bg-violet-300/[0.05] hover:text-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300"
+        >
+          View details & channels
+        </Link>
       </footer>
+    </article>
+  );
+}
+
+const EVENT_CHANNELS = [
+  {
+    type: "EMAIL",
+    description: "Send notifications to an email address found in the event payload.",
+  },
+  {
+    type: "SMS",
+    description: "Send notifications to a phone number found in the event payload.",
+  },
+  {
+    type: "PUSH",
+    description: "Send notifications to a device token found in the event payload.",
+  },
+];
+
+function ChannelConfigurationCard({ eventTypeId, channel, channelRecord, actionUrl }) {
+  const fetcher = useFetcher();
+  const [recipientPath, setRecipientPath] = useState("");
+  const [recipientPathError, setRecipientPathError] = useState("");
+  const isSubmitting = fetcher.state !== "idle";
+  const isConfigured = Boolean(channelRecord);
+  const isEnabled = channelRecord?.isEnabled === true;
+  const intent = isConfigured ? "update-event-channel" : "create-event-channel";
+  const actionResult = fetcher.data?.intent === intent ? fetcher.data : null;
+  const statusLabel = isEnabled ? "Enabled" : isConfigured ? "Disabled" : "Not configured";
+  const actionLabel = isSubmitting
+    ? "Saving…"
+    : isEnabled
+      ? "Disable"
+      : "Enable";
+
+  function validateChannelAction(event) {
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!isConfigured && !recipientPath.trim()) {
+      event.preventDefault();
+      setRecipientPathError("Enter the payload path for this channel's recipient.");
+      return;
+    }
+
+    setRecipientPathError("");
+  }
+
+  return (
+    <article className="rounded-xl border border-border bg-surface-1 p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-mono text-sm font-semibold text-slate-100">{channel.type}</h3>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+              isEnabled
+                ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300"
+                : "border-border bg-surface-2/50 text-slate-500"
+            }`}>
+              {statusLabel}
+            </span>
+          </div>
+          <p className="mt-1.5 text-xs leading-5 text-slate-400">{channel.description}</p>
+          {isConfigured && (
+            <p className="mt-2 break-all font-mono text-[11px] text-slate-500">
+              Recipient path: {channelRecord.recipientPath || "Not set"}
+            </p>
+          )}
+        </div>
+
+        <fetcher.Form method="post" action={actionUrl} onSubmit={validateChannelAction} className="w-full shrink-0 sm:w-auto">
+          <input type="hidden" name="intent" value={intent} />
+          <input type="hidden" name="channelType" value={channel.type} />
+          {isConfigured ? (
+            <>
+              <input type="hidden" name="channelId" value={channelRecord.id} />
+              <input type="hidden" name="isEnabled" value={String(!isEnabled)} />
+            </>
+          ) : (
+            <>
+              <input type="hidden" name="eventTypeId" value={eventTypeId} />
+              <label htmlFor={`recipient-path-${channel.type}`} className="mb-1.5 block text-[11px] font-medium text-slate-300">
+                Recipient payload path
+              </label>
+              <input
+                id={`recipient-path-${channel.type}`}
+                name="recipientPath"
+                type="text"
+                value={recipientPath}
+                onChange={(event) => {
+                  setRecipientPath(event.target.value);
+                  setRecipientPathError("");
+                }}
+                maxLength={255}
+                required
+                placeholder="data.recipient"
+                aria-invalid={Boolean(recipientPathError)}
+                aria-describedby={recipientPathError
+                  ? `recipient-path-help-${channel.type} recipient-path-error-${channel.type}`
+                  : `recipient-path-help-${channel.type}`}
+                className="min-h-9 w-full rounded-lg border border-border bg-surface-2 px-3 font-mono text-xs text-slate-100 outline-none placeholder:text-slate-600 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 sm:w-64"
+              />
+              <p id={`recipient-path-help-${channel.type}`} className="mt-1 text-[10px] leading-4 text-slate-500 sm:max-w-64">
+                Dot-separated path to the recipient value in each event payload.
+              </p>
+            </>
+          )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`mt-3 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 text-xs font-medium transition disabled:cursor-wait disabled:opacity-60 sm:mt-0 sm:w-auto ${
+              isEnabled
+                ? "border-rose-300/20 bg-rose-300/[0.05] text-rose-300 hover:bg-rose-300/[0.1]"
+                : "border-violet-300/20 bg-violet-300/[0.07] text-violet-200 hover:bg-violet-300/[0.12]"
+            }`}
+          >
+            {isSubmitting && <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />}
+            {actionLabel} {channel.type}
+          </button>
+        </fetcher.Form>
+      </div>
+
+      {recipientPathError && (
+        <p id={`recipient-path-error-${channel.type}`} role="alert" className="mt-2 text-xs text-rose-300">
+          {recipientPathError}
+        </p>
+      )}
+      {actionResult?.success === false && !isSubmitting && (
+        <p role="alert" className="mt-3 rounded-lg border border-rose-300/15 bg-rose-300/[0.05] px-3 py-2 text-xs leading-5 text-rose-300">
+          {actionResult.message || "Could not update this channel."}
+        </p>
+      )}
+      {actionResult?.success === true && !isSubmitting && (
+        <p role="status" className="mt-3 text-xs text-emerald-300">
+          {actionResult.message || "Channel configuration saved."}
+        </p>
+      )}
     </article>
   );
 }
@@ -508,23 +655,36 @@ export function EventTypesPanel({
   eventTypesError = "",
   entityGroups = [],
   entityGroupsError = "",
+  selectedEventType = null,
+  selectedEventTypeError = "",
+  eventTypeChannels = [],
+  eventTypeChannelsError = "",
   application,
   user,
 }) {
   const fetcher = useFetcher();
+  const deactivationFetcher = useFetcher();
+  const location = useLocation();
+  const navigate = useNavigate();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
   const dialogRef = useRef(null);
+  const deactivationDialogRef = useRef(null);
   const handledResultRef = useRef(null);
+  const handledDeactivationResultRef = useRef(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deactivationDialogOpen, setDeactivationDialogOpen] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const isSubmitting = fetcher.state !== "idle";
+  const isDeactivating = deactivationFetcher.state !== "idle";
   const isLoading = navigation.state === "loading" || revalidator.state === "loading";
   const applicationUrl = `/dashboard/${encodeURIComponent(appId)}`;
   const actionUrl = `${applicationUrl}/events`;
+  const detailUrl = `${actionUrl}?eventTypeId=`;
   const entityGroupsUrl = `${applicationUrl}/entities`;
+  const detailView = new URLSearchParams(location.search).has("eventTypeId");
   const formError = hasSubmitted
     && fetcher.data?.intent === "create-event-type"
     && fetcher.data?.success === false
@@ -536,6 +696,12 @@ export function EventTypesPanel({
       dialogRef.current.showModal();
     }
   }, [dialogOpen]);
+
+  useEffect(() => {
+    if (deactivationDialogOpen && deactivationDialogRef.current && !deactivationDialogRef.current.open) {
+      deactivationDialogRef.current.showModal();
+    }
+  }, [deactivationDialogOpen]);
 
   useEffect(() => {
     if (!successMessage) return undefined;
@@ -563,6 +729,31 @@ export function EventTypesPanel({
     setSuccessMessage(result.message || "Event Type created successfully.");
   }, [fetcher.data, fetcher.state]);
 
+  useEffect(() => {
+    const result = deactivationFetcher.data;
+    if (
+      deactivationFetcher.state !== "idle"
+      || result?.intent !== "deactivate-event-type"
+      || !result.success
+      || handledDeactivationResultRef.current === result
+    ) {
+      return;
+    }
+
+    handledDeactivationResultRef.current = result;
+    deactivationDialogRef.current?.close();
+    setDeactivationDialogOpen(false);
+    setSuccessMessage("Event Type deactivated. It remains listed as inactive.");
+    navigate(actionUrl, { state: { application, user } });
+  }, [
+    deactivationFetcher.data,
+    deactivationFetcher.state,
+    navigate,
+    actionUrl,
+    application,
+    user,
+  ]);
+
   function openCreateDialog() {
     setHasSubmitted(false);
     setValidationError("");
@@ -576,6 +767,13 @@ export function EventTypesPanel({
     setDialogOpen(false);
     setHasSubmitted(false);
     setValidationError("");
+  }
+
+  function closeDeactivationDialog() {
+    if (isDeactivating) return;
+
+    deactivationDialogRef.current?.close();
+    setDeactivationDialogOpen(false);
   }
 
   function validateForm(event) {
@@ -603,14 +801,228 @@ export function EventTypesPanel({
     setValidationError("");
   }
 
+  let panelContent;
+
+  if (detailView) {
+    const detailError = selectedEventTypeError || eventTypesError;
+
+    if (detailError || !selectedEventType) {
+      panelContent = (
+        <div role="alert" className="grid min-h-56 place-items-center px-4 text-center">
+          <div className="max-w-md">
+            <AlertCircle size={20} className="mx-auto text-rose-300" aria-hidden="true" />
+            <p className="mt-3 text-sm font-medium text-rose-300">Unable to open this Event Type</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              {detailError || "This Event Type is not available in the selected application."}
+            </p>
+          </div>
+        </div>
+      );
+    } else {
+      panelContent = (
+        <div className="p-5 sm:p-6">
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-xl border border-border bg-surface-2/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Description</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {selectedEventType.description || "No description provided."}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface-2/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Entity Group</p>
+              <p className="mt-2 text-sm text-slate-300">
+                {selectedEventType.entityGrp?.name || "Not assigned"}
+              </p>
+              {selectedEventType.entityGrp?.entityIdPath && (
+                <code className="mt-1.5 block break-all font-mono text-[11px] text-slate-500">
+                  {selectedEventType.entityGrp.entityIdPath}
+                </code>
+              )}
+            </div>
+            <div className="rounded-xl border border-border bg-surface-2/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Event Type status</p>
+              <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                selectedEventType.isActive
+                  ? "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-300"
+                  : "border-border bg-surface-2/50 text-slate-500"
+              }`}>
+                <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                {selectedEventType.isActive ? "Active" : "Inactive"}
+              </span>
+              <p className="mt-3 text-[11px] text-slate-500">
+                Created {formatEventTypeDate(selectedEventType.created_at)}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Updated {formatEventTypeDate(selectedEventType.updated_at)}
+              </p>
+            </div>
+          </div>
+
+          <section aria-labelledby="event-type-channels-title" className="border-t border-border pt-5">
+            <div className="mb-4">
+              <h2 id="event-type-channels-title" className="text-sm font-semibold text-slate-200">
+                Delivery channels
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Configure each channel independently for this Event Type. Recipient paths point to values in your event payload.
+              </p>
+            </div>
+
+            {eventTypeChannelsError ? (
+              <div role="alert" className="rounded-xl border border-rose-300/15 bg-rose-300/[0.05] p-4">
+                <p className="text-sm font-medium text-rose-300">Could not load channel configuration</p>
+                <p className="mt-1.5 text-xs leading-5 text-slate-400">{eventTypeChannelsError}</p>
+                <button
+                  type="button"
+                  onClick={() => revalidator.revalidate()}
+                  className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-xs text-slate-300 transition hover:bg-surface-2"
+                >
+                  <RefreshCw size={12} aria-hidden="true" />
+                  Try again
+                </button>
+              </div>
+            ) : isLoading ? (
+              <div className="grid min-h-40 place-items-center">
+                <p role="status" className="inline-flex items-center gap-2 text-sm text-slate-400">
+                  <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+                  Loading channel configuration…
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {EVENT_CHANNELS.map((channel) => {
+                  const channelRecord = eventTypeChannels.find(
+                    (record) => record.channelType === channel.type,
+                  );
+
+                  return (
+                    <ChannelConfigurationCard
+                      key={channel.type}
+                      eventTypeId={selectedEventType.id}
+                      channel={channel}
+                      channelRecord={channelRecord}
+                      actionUrl={actionUrl}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      );
+    }
+  } else if (eventTypesError) {
+    panelContent = (
+      <div role="alert" className="grid min-h-56 place-items-center px-4 text-center">
+        <div className="max-w-md">
+          <AlertCircle size={20} className="mx-auto text-rose-300" aria-hidden="true" />
+          <p className="mt-3 text-sm font-medium text-rose-300">Unable to load Event Types</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">{eventTypesError}</p>
+          <button
+            type="button"
+            onClick={() => revalidator.revalidate()}
+            className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs text-slate-300 transition hover:bg-surface-2"
+          >
+            <RefreshCw size={13} aria-hidden="true" />
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  } else if (isLoading) {
+    panelContent = (
+      <div className="grid min-h-56 place-items-center">
+        <p role="status" className="inline-flex items-center gap-2 text-sm text-slate-400">
+          <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+          Loading Event Types…
+        </p>
+      </div>
+    );
+  } else if (eventTypes.length > 0) {
+    panelContent = (
+      <>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            {eventTypes.length} {eventTypes.length === 1 ? "Event Type" : "Event Types"}
+          </p>
+          <button
+            type="button"
+            onClick={() => revalidator.revalidate()}
+            disabled={revalidator.state !== "idle"}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs text-slate-500 transition hover:bg-surface-2 hover:text-slate-300 disabled:opacity-50"
+          >
+            <RefreshCw size={12} aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
+        <div className="grid gap-3">
+          {eventTypes.map((eventType) => (
+            <EventTypeCard
+              key={eventType.id}
+              eventType={eventType}
+              detailUrl={detailUrl}
+              application={application}
+              user={user}
+            />
+          ))}
+        </div>
+      </>
+    );
+  } else {
+    panelContent = (
+      <div className="grid min-h-64 place-items-center rounded-xl border border-dashed border-border bg-surface-2/20 px-5 py-10 text-center">
+        <div className="max-w-sm">
+          <span className="mx-auto grid size-11 place-items-center rounded-xl border border-violet-300/15 bg-violet-300/[0.06] text-violet-200">
+            <ListChecks size={18} aria-hidden="true" />
+          </span>
+          <h2 className="mt-4 text-sm font-semibold text-slate-200">No Event Types yet</h2>
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+            Create an Event Type to define a named event your application can send, such as{" "}
+            <code className="font-mono text-violet-200">ORDER_CREATED</code>.
+          </p>
+          <button
+            type="button"
+            onClick={openCreateDialog}
+            className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-xs font-medium text-white transition hover:bg-violet-500"
+          >
+            <Plus size={14} aria-hidden="true" />
+            Create Event Type
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <SectionPanel
         icon={ListChecks}
         eyebrow="Events"
-        title="Event Types"
-        description="Define the named events your application can send to NotifyX."
-        action={(
+        title={detailView ? selectedEventType?.eventCode || "Event Type configuration" : "Event Types"}
+        description={detailView
+          ? "Review this Event Type and configure its notification channels."
+          : "Define the named events your application can send to NotifyX."}
+        action={detailView ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              to={actionUrl}
+              state={{ application, user }}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3.5 text-sm font-medium text-slate-300 transition hover:bg-surface-2"
+            >
+              ← All Event Types
+            </Link>
+            {selectedEventType?.isActive && (
+              <button
+                type="button"
+                onClick={() => setDeactivationDialogOpen(true)}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-rose-300/20 px-3.5 text-sm font-medium text-rose-300 transition hover:border-rose-300/40 hover:bg-rose-300/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-300"
+              >
+                <Trash2 size={15} aria-hidden="true" />
+                Deactivate
+              </button>
+            )}
+          </div>
+        ) : (
           <button
             type="button"
             onClick={openCreateDialog}
@@ -621,93 +1033,29 @@ export function EventTypesPanel({
           </button>
         )}
       >
-        <div className="p-5 sm:p-6">
-          {successMessage && (
-            <p role="status" className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-3 text-sm text-emerald-300">
-              <Check size={15} aria-hidden="true" />
-              {successMessage}
-            </p>
-          )}
-
-          {entityGroupsError && (
-            <div className="mb-5 flex flex-col gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p role="status" className="text-xs leading-5 text-amber-200/80">
-                Entity Groups could not be loaded. You can still create an Event Type without assigning a group.
+        {detailView ? panelContent : (
+          <div className="p-5 sm:p-6">
+            {successMessage && (
+              <p role="status" className="mb-5 flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-3 text-sm text-emerald-300">
+                <Check size={15} aria-hidden="true" />
+                {successMessage}
               </p>
-              <Link to={entityGroupsUrl} state={{ application, user }} className="shrink-0 text-xs font-medium text-violet-200 hover:text-violet-100">
-                Open Entity Groups
-              </Link>
-            </div>
-          )}
+            )}
 
-          {eventTypesError ? (
-            <div role="alert" className="grid min-h-56 place-items-center px-4 text-center">
-              <div className="max-w-md">
-                <AlertCircle size={20} className="mx-auto text-rose-300" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium text-rose-300">Unable to load Event Types</p>
-                <p className="mt-2 text-xs leading-5 text-slate-400">{eventTypesError}</p>
-                <button
-                  type="button"
-                  onClick={() => revalidator.revalidate()}
-                  className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs text-slate-300 transition hover:bg-surface-2"
-                >
-                  <RefreshCw size={13} aria-hidden="true" />
-                  Try again
-                </button>
-              </div>
-            </div>
-          ) : isLoading ? (
-            <div className="grid min-h-56 place-items-center">
-              <p role="status" className="inline-flex items-center gap-2 text-sm text-slate-400">
-                <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
-                Loading Event Types…
-              </p>
-            </div>
-          ) : eventTypes.length > 0 ? (
-            <>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-slate-500">
-                  {eventTypes.length} {eventTypes.length === 1 ? "Event Type" : "Event Types"}
+            {entityGroupsError && (
+              <div className="mb-5 flex flex-col gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p role="status" className="text-xs leading-5 text-amber-200/80">
+                  Entity Groups could not be loaded. You can still create an Event Type without assigning a group.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => revalidator.revalidate()}
-                  disabled={revalidator.state !== "idle"}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-xs text-slate-500 transition hover:bg-surface-2 hover:text-slate-300 disabled:opacity-50"
-                >
-                  <RefreshCw size={12} aria-hidden="true" />
-                  Refresh
-                </button>
+                <Link to={entityGroupsUrl} state={{ application, user }} className="shrink-0 text-xs font-medium text-violet-200 hover:text-violet-100">
+                  Open Entity Groups
+                </Link>
               </div>
-              <div className="grid gap-3">
-                {eventTypes.map((eventType) => (
-                  <EventTypeCard key={eventType.id} eventType={eventType} />
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="grid min-h-64 place-items-center rounded-xl border border-dashed border-border bg-surface-2/20 px-5 py-10 text-center">
-              <div className="max-w-sm">
-                <span className="mx-auto grid size-11 place-items-center rounded-xl border border-violet-300/15 bg-violet-300/[0.06] text-violet-200">
-                  <ListChecks size={18} aria-hidden="true" />
-                </span>
-                <h2 className="mt-4 text-sm font-semibold text-slate-200">No Event Types yet</h2>
-                <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                  Create an Event Type to define a named event your application can send, such as{" "}
-                  <code className="font-mono text-violet-200">ORDER_CREATED</code>.
-                </p>
-                <button
-                  type="button"
-                  onClick={openCreateDialog}
-                  className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-violet-600 px-3.5 text-xs font-medium text-white transition hover:bg-violet-500"
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  Create Event Type
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+
+            {panelContent}
+          </div>
+        )}
       </SectionPanel>
 
       {dialogOpen && (
@@ -828,6 +1176,77 @@ export function EventTypesPanel({
               </button>
             </footer>
           </fetcher.Form>
+        </dialog>
+      )}
+
+      {deactivationDialogOpen && (
+        <dialog
+          ref={deactivationDialogRef}
+          onClose={() => setDeactivationDialogOpen(false)}
+          onCancel={(event) => {
+            if (isDeactivating) event.preventDefault();
+          }}
+          aria-labelledby="deactivate-event-type-title"
+          aria-describedby="deactivate-event-type-description"
+          className="m-auto max-h-[min(90vh,560px)] w-[min(100%-2rem,480px)] rounded-2xl border border-border bg-surface-1 p-0 text-slate-100 shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm"
+        >
+          <div className="p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-rose-300/20 bg-rose-300/[0.07] text-rose-300">
+                <Trash2 size={18} aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="deactivate-event-type-title" className="text-base font-semibold text-slate-100">
+                  Deactivate Event Type?
+                </h2>
+                <p id="deactivate-event-type-description" className="mt-1.5 text-sm leading-6 text-slate-400">
+                  This Event Type will no longer accept new Events. Existing Event history and channel configuration will remain available.
+                </p>
+              </div>
+            </div>
+
+            {selectedEventType?.eventCode && (
+              <p className="mt-4 rounded-lg border border-border bg-surface-2/60 px-3 py-2.5 font-mono text-xs text-slate-300">
+                {selectedEventType.eventCode}
+              </p>
+            )}
+
+            {deactivationFetcher.data?.intent === "deactivate-event-type"
+              && deactivationFetcher.data.success === false
+              && !isDeactivating && (
+                <p role="alert" className="mt-4 rounded-lg border border-rose-300/15 bg-rose-300/[0.05] px-3 py-2.5 text-xs leading-5 text-rose-300">
+                  {deactivationFetcher.data.message || "Could not deactivate this Event Type."}
+                </p>
+              )}
+
+            <deactivationFetcher.Form
+              method="post"
+              action={actionUrl}
+              onSubmit={(event) => {
+                if (isDeactivating) event.preventDefault();
+              }}
+              className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+            >
+              <input type="hidden" name="intent" value="deactivate-event-type" />
+              <input type="hidden" name="eventTypeId" value={selectedEventType?.id || ""} />
+              <button
+                type="button"
+                onClick={closeDeactivationDialog}
+                disabled={isDeactivating}
+                className="min-h-10 rounded-lg border border-border px-4 text-sm text-slate-300 transition hover:bg-surface-2 disabled:cursor-wait disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isDeactivating || !selectedEventType?.id}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 text-sm font-medium text-white transition hover:bg-rose-400 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isDeactivating && <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />}
+                {isDeactivating ? "Deactivating…" : "Confirm deactivation"}
+              </button>
+            </deactivationFetcher.Form>
+          </div>
         </dialog>
       )}
     </>

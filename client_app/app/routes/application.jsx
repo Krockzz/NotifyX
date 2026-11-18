@@ -61,6 +61,10 @@ export async function loader({ request, params }) {
       eventTypesError: "",
       eventTypeGroups: [],
       eventTypeGroupsError: "",
+      selectedEventType: null,
+      selectedEventTypeError: "",
+      eventTypeChannels: [],
+      eventTypeChannelsError: "",
     };
 
     if (!appId) {
@@ -96,6 +100,44 @@ export async function loader({ request, params }) {
         && entityGroupsResult.payload?.success !== false
         && Array.isArray(entityGroupsResult.payload?.data);
 
+      const selectedEventTypeId = new URL(request.url).searchParams.get("eventTypeId");
+      let selectedEventType = null;
+      let selectedEventTypeError = "";
+      let eventTypeChannels = [];
+      let eventTypeChannelsError = "";
+
+      if (selectedEventTypeId && eventTypesValid) {
+        selectedEventType = eventTypesResult.payload.data.find(
+          (eventType) => String(eventType.id) === selectedEventTypeId,
+        ) || null;
+
+        if (!selectedEventType) {
+          selectedEventTypeError = "This Event Type could not be found in the selected application.";
+        } else {
+          const channelsUrl = `${apiBaseUrl}/api/v1/eventChannels/get-channels/${encodeURIComponent(selectedEventType.id)}`;
+          try {
+            const channelsResult = await fetchJson(channelsUrl, request);
+
+            if ([401, 403].includes(channelsResult.response.status)) {
+              return redirect("/login");
+            }
+
+            const channelsValid = channelsResult.response.ok
+              && channelsResult.payload?.success !== false
+              && Array.isArray(channelsResult.payload?.data);
+
+            eventTypeChannels = channelsValid ? channelsResult.payload.data : [];
+            eventTypeChannelsError = channelsValid
+              ? ""
+              : channelsResult.payload?.message || "Could not load channel configuration for this Event Type.";
+          } catch {
+            eventTypeChannelsError = "Unable to connect to the application service while loading channel configuration.";
+          }
+        }
+      } else if (selectedEventTypeId && !eventTypesValid) {
+        selectedEventTypeError = "Load the Event Types list before opening its channel configuration.";
+      }
+
       return data({
         eventTypes: eventTypesValid ? eventTypesResult.payload.data : [],
         eventTypesError: eventTypesValid
@@ -105,6 +147,10 @@ export async function loader({ request, params }) {
         eventTypeGroupsError: entityGroupsValid
           ? ""
           : entityGroupsResult.payload?.message || "Could not load Entity Groups for this application.",
+        selectedEventType,
+        selectedEventTypeError,
+        eventTypeChannels,
+        eventTypeChannelsError,
       });
     } catch {
       return data({
@@ -257,6 +303,121 @@ export async function action({ request, params }) {
     }
   }
 
+  if (intent === "create-event-channel" || intent === "update-event-channel") {
+    const channelType = String(formData.get("channelType") || "");
+    const eventTypeId = String(formData.get("eventTypeId") || "");
+    const channelId = String(formData.get("channelId") || "");
+    const recipientPath = String(formData.get("recipientPath") || "").trim();
+    const isEnabledValue = String(formData.get("isEnabled") || "");
+    const invalid = (message) => data({ intent, success: false, message }, { status: 400 });
+    const allowedChannels = ["EMAIL", "SMS", "PUSH"];
+
+    if (!API_URI) {
+      return data({ intent, success: false, message: "The application service is not configured." }, { status: 500 });
+    }
+
+    if (!allowedChannels.includes(channelType)) {
+      return invalid("Choose a supported notification channel.");
+    }
+
+    if (intent === "create-event-channel") {
+      if (!eventTypeId) return invalid("An Event Type is required.");
+      if (!recipientPath) return invalid("Enter the payload path for this channel's recipient.");
+      if (recipientPath.length > 255) return invalid("Recipient paths must be 255 characters or fewer.");
+    } else {
+      if (!channelId) return invalid("A channel configuration ID is required.");
+      if (!["true", "false"].includes(isEnabledValue)) {
+        return invalid("A valid channel state is required.");
+      }
+    }
+
+    const apiBaseUrl = `${API_URI.replace(/\/+$/, "")}/api/v1/eventChannels`;
+    const apiUrl = intent === "create-event-channel"
+      ? `${apiBaseUrl}/create-channel/${encodeURIComponent(eventTypeId)}`
+      : `${apiBaseUrl}/update-channels/${encodeURIComponent(channelId)}`;
+    const body = intent === "create-event-channel"
+      ? { channelType, recipientPath }
+      : { isEnabled: isEnabledValue === "true" };
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: getCookieHeaders(request, true),
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      if ([401, 403].includes(response.status)) return redirect("/login");
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.success === false) {
+        return data({
+          intent,
+          success: false,
+          message: payload?.message || "Could not update this channel configuration.",
+        }, { status: response.status || 500 });
+      }
+
+      return data({
+        intent,
+        success: true,
+        message: payload?.message || "Channel configuration saved.",
+      });
+    } catch {
+      return data({
+        intent,
+        success: false,
+        message: "Unable to connect to the application service. Try again.",
+      }, { status: 502 });
+    }
+  }
+
+  if (intent === "deactivate-event-type") {
+    const eventTypeId = String(formData.get("eventTypeId") || "");
+
+    if (!appId) {
+      return data({ intent, success: false, message: "An application ID is required." }, { status: 400 });
+    }
+    if (!eventTypeId) {
+      return data({ intent, success: false, message: "An Event Type ID is required." }, { status: 400 });
+    }
+    if (!API_URI) {
+      return data({ intent, success: false, message: "The application service is not configured." }, { status: 500 });
+    }
+
+    try {
+      const apiUrl = `${API_URI.replace(/\/+$/, "")}/api/v1/eventTypes/deleteEventType/${encodeURIComponent(eventTypeId)}`;
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: getCookieHeaders(request),
+        credentials: "include",
+      });
+
+      if ([401, 403].includes(response.status)) return redirect("/login");
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.success === false) {
+        return data({
+          intent,
+          success: false,
+          message: payload?.message || "Could not deactivate this Event Type.",
+        }, { status: response.status || 500 });
+      }
+
+      return data({
+        intent,
+        success: true,
+        message: payload?.message || "Event Type deactivated successfully.",
+      });
+    } catch {
+      return data({
+        intent,
+        success: false,
+        message: "Unable to connect to the application service. Try again.",
+      }, { status: 502 });
+    }
+  }
+
   const entityGroupId = String(formData.get("entityGroupId") || "");
   const name = String(formData.get("name") || "").trim();
   const entityIdPath = String(formData.get("entityIdPath") || "").trim();
@@ -310,6 +471,10 @@ export default function ApplicationDetail() {
     eventTypesError = "",
     eventTypeGroups = [],
     eventTypeGroupsError = "",
+    selectedEventType = null,
+    selectedEventTypeError = "",
+    eventTypeChannels = [],
+    eventTypeChannelsError = "",
   } = useLoaderData();
   const location = useLocation();
   const locationState = location.state || {};
@@ -345,6 +510,10 @@ export default function ApplicationDetail() {
                     entityGroupsError={eventTypeGroupsError}
                     application={application}
                     user={locationState.user}
+                    selectedEventType={selectedEventType}
+                    selectedEventTypeError={selectedEventTypeError}
+                    eventTypeChannels={eventTypeChannels}
+                    eventTypeChannelsError={eventTypeChannelsError}
                   />
                 )}
                 {currentSection === "channels" && <ChannelsPanel />}
