@@ -92,7 +92,7 @@ const sampleMetrics = [
   {
     label: "Error rate",
     value: "0.06%",
-    detail: <><CircleAlert size={14} className="text-red-400" aria-hidden="true" /><span>Within expected range</span></>,
+    detail: <><CircleAlert size={14} className="text-status-error" aria-hidden="true" /><span>Within expected range</span></>,
     icon: CircleAlert,
     tone: "red",
   },
@@ -194,7 +194,7 @@ export default function Dashboard() {
             </p>
           </div>
           <button
-            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-[0_0_25px_rgba(139,92,246,0.25)] transition-all duration-200 hover:from-violet-500 hover:to-indigo-500 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white shadow-md shadow-violet-950/20 transition-all duration-200 hover:bg-violet-500 hover:shadow-lg hover:shadow-violet-950/25 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 motion-reduce:transition-none"
             type="button"
             onClick={openDialog}
           >

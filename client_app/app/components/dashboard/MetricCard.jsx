@@ -1,8 +1,8 @@
 export default function MetricCard({ label, value, detail, icon: Icon, tone = "violet" }) {
   const tones = {
-    violet: { icon: "border-violet-400/20 bg-violet-400/10 text-violet-300", line: "#8b5cf6", area: "rgba(139,92,246,.12)" },
-    green: { icon: "border-emerald-400/20 bg-emerald-400/10 text-emerald-400", line: "#10b981", area: "rgba(16,185,129,.11)" },
-    red: { icon: "border-red-400/20 bg-red-400/10 text-red-400", line: "#ef4444", area: "rgba(239,68,68,.1)" },
+    violet: { icon: "border-violet-300/20 bg-violet-300/10 text-violet-200", line: "var(--color-primary-accent)", area: "var(--color-accent-tint)" },
+    green: { icon: "border-emerald-300/20 bg-emerald-300/10 text-emerald-300", line: "var(--color-success)", area: "color-mix(in srgb, var(--color-success) 12%, transparent)" },
+    red: { icon: "border-rose-300/20 bg-rose-300/10 text-rose-300", line: "var(--color-error)", area: "color-mix(in srgb, var(--color-error) 11%, transparent)" },
   };
   const colors = tones[tone] || tones.violet;
   const trendPath = tone === "green"
@@ -12,7 +12,7 @@ export default function MetricCard({ label, value, detail, icon: Icon, tone = "v
       : "M2 27 C13 23 17 27 28 17 S42 21 52 12 S69 18 78 10 S91 12 98 4";
 
   return (
-    <article className="group rounded-xl border border-slate-800/80 bg-[#111827]/80 px-5 py-4 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-[0_8px_25px_rgba(124,58,237,0.08)]">
+    <article className="group rounded-xl border border-border bg-surface-1 px-5 py-4 shadow-sm shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/30 hover:shadow-lg hover:shadow-violet-950/10 motion-reduce:transition-none">
       <div className="flex items-center justify-between gap-3">
         <p className="truncate text-xs font-medium text-slate-400">{label}</p>
         <span className={`grid size-8 shrink-0 place-items-center rounded-lg border ${colors.icon}`}>

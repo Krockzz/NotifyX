@@ -171,7 +171,7 @@ export default function ApplicationCard({ application, onChanged, user }) {
 
   return (
     <>
-      <article className="group relative flex min-h-[228px] min-w-0 flex-col gap-4 rounded-xl border border-slate-800/80 bg-[#111827]/80 p-4 shadow-[0_14px_44px_-34px_rgba(0,0,0,.9)] transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-[0_8px_25px_rgba(124,58,237,0.08)] sm:p-5">
+      <article className="group relative flex min-h-[228px] min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface-1 p-4 shadow-sm shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/30 hover:shadow-lg hover:shadow-violet-950/10 sm:p-5 motion-reduce:transition-none">
         <div className="flex min-w-0 items-start justify-between gap-3 pr-9">
           <Link
             to={`/dashboard/${encodeURIComponent(appId)}`}
@@ -179,13 +179,13 @@ export default function ApplicationCard({ application, onChanged, user }) {
             aria-label={`Open ${application.appName}`}
             className="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300"
           >
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-violet-400/15 bg-violet-500/10 text-violet-300" aria-hidden="true">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-surface-2 text-slate-300 transition-colors group-hover:text-violet-200" aria-hidden="true">
               <Box size={19} strokeWidth={1.8} />
             </span>
             <span className="grid min-w-0 gap-1.5">
               <strong className="truncate text-sm font-semibold text-slate-100" title={application.appName}>{application.appName}</strong>
-              <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${isActive ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border-slate-700 bg-slate-800/70 text-slate-400"}`}>
-                <span className={`size-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-slate-500"}`} aria-hidden="true" />
+              <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${isActive ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-300" : "border-border bg-surface-2 text-slate-400"}`}>
+                <span className={`size-1.5 rounded-full ${isActive ? "bg-emerald-300" : "bg-slate-500"}`} aria-hidden="true" />
                 {isActive ? "Active" : "Inactive"}
               </span>
             </span>
@@ -193,7 +193,7 @@ export default function ApplicationCard({ application, onChanged, user }) {
           </Link>
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-800/80 bg-[#0B0F17]/80 px-3 py-2">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-border bg-bg-base/70 px-3 py-2">
           <code className="min-w-0 truncate font-mono text-[11px] text-slate-400" title={String(appId)}>{String(appId)}</code>
           <button type="button" onClick={copyApplicationId} aria-label={copiedId ? "Application ID copied" : "Copy application ID"} title={copiedId ? "Copied" : "Copy ID"} className="shrink-0 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-violet-500/10 hover:text-violet-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400">
             {copiedId ? "Copied" : "Copy ID"}
@@ -203,10 +203,10 @@ export default function ApplicationCard({ application, onChanged, user }) {
         <div className="flex min-h-6 flex-wrap items-center gap-1.5" aria-label="Configured notification channels">
           {channels.length ? channels.map((channel, index) => (
             <span key={`${channel}-${index}`} title={`${channel} notification channel`} className="rounded-md border border-slate-700/80 bg-slate-800/60 px-2 py-1 text-[10px] font-medium text-slate-400 transition hover:border-violet-500/40 hover:text-violet-300">{channel}</span>
-          )) : <span title="No channel information is available for this application" className="rounded-md border border-slate-800 bg-slate-900/50 px-2 py-1 text-[10px] text-slate-500">Channels unavailable</span>}
+          )) : <span title="No channel information is available for this application" className="rounded-md border border-border bg-surface-2/70 px-2 py-1 text-[10px] text-slate-500">Channels unavailable</span>}
         </div>
 
-        <footer className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-800/80 pt-3 text-[11px] text-slate-500">
+        <footer className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3 text-[11px] text-slate-500">
           <span>{createdDate ? `Created ${createdDate}` : "Created date unavailable"}</span>
           <span>{updatedDate ? `Updated ${updatedDate}` : "Updated date unavailable"}</span>
         </footer>
