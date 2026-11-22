@@ -139,6 +139,207 @@ const injestEvent = asyncHandler(async (req, res) => {
         );
 });
 
+
+const getEvents = asyncHandler(async (req, res) => {
+    const { appId } = req.params;
+    const { page = "1", limit = "10", eventTypeId, from, to } = req.query;
+
+    const currentPage = Number(page);
+    const pageSize = Number(limit);
+
+    if (
+        !Number.isInteger(currentPage) ||
+        currentPage < 1 ||
+        !Number.isInteger(pageSize) ||
+        pageSize < 1 ||
+        pageSize > 100
+    ) {
+        throw new ApiError(400, "Invalid pagination parameters");
+    }
+
+    const createdAt = {};
+
+    if (from) {
+        const fromDate = new Date(from);
+
+        if (Number.isNaN(fromDate.getTime())) {
+            throw new ApiError(400, "Invalid from date");
+        }
+
+        createdAt.gte = fromDate;
+    }
+
+    if (to) {
+        const toDate = new Date(to);
+
+        if (Number.isNaN(toDate.getTime())) {
+            throw new ApiError(400, "Invalid to date");
+        }
+
+        createdAt.lte = toDate;
+    }
+
+    if (from && to && createdAt.gte > createdAt.lte) {
+        throw new ApiError(400, "From date cannot be after to date");
+    }
+
+  
+    const application = await prisma.application.findFirst({
+        where: {
+            id: appId,
+            userId: req.user.id,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!application) {
+        throw new ApiError(404, "Application not found");
+    }
+
+   
+    const where = {
+        appId: application.id,
+        ...(eventTypeId && { eventTypeId }),
+        ...(Object.keys(createdAt).length > 0 && { created_at: createdAt }),
+    };
+
+    const skip = (currentPage - 1) * pageSize;
+
+    const [events, totalEvents] = await Promise.all([
+        prisma.event.findMany({
+            where,
+            skip,
+            take: pageSize,
+            orderBy: {
+                created_at: "desc",
+            },
+            select: {
+                id: true,
+                eventTypeId: true,
+                routingKey: true,
+                created_at: true,
+
+                eventType: {
+                    select: {
+                        eventCode: true,
+                    },
+                },
+
+                _count: {
+                    select: {
+                        notifications: true,
+                    },
+                },
+            },
+        }),
+
+        prisma.event.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalEvents / pageSize);
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                events,
+                pagination: {
+                    currentPage,
+                    pageSize,
+                    totalEvents,
+                    totalPages,
+                    hasNextPage: currentPage < totalPages,
+                    hasPreviousPage: currentPage > 1,
+                },
+            },
+            "Events fetched successfully"
+        )
+    );
+});
+
+
+
+
+const getEventById = asyncHandler(async (req, res) => {
+    const { appId, eventId } = req.params;
+
+    const application = await prisma.application.findFirst({
+        where: {
+            id: appId,
+            userId: req.user.id,
+        },
+        select: {
+            id: true,
+        },
+    });
+
+    if (!application) {
+        throw new ApiError(404, "Application not found");
+    }
+
+
+    const event = await prisma.event.findFirst({
+        where: {
+            id: eventId,
+            appId: application.id,
+        },
+        select: {
+            id: true,
+            appId: true,
+            eventTypeId: true,
+            apiKeyId: true,
+            routingKey: true,
+            payload: true,
+            created_at: true,
+
+            eventType: {
+                select: {
+                    eventCode: true,
+                },
+            },
+
+            notifications: {
+                orderBy: {
+                    created_at: "desc",
+                },
+                select: {
+                    id: true,
+                    channelType: true,
+                    recipientTarget: true,
+                    subject: true,
+                    status: true,
+                    scheduledAt: true,
+                    created_at: true,
+                    updated_at: true,
+                },
+            },
+
+            _count: {
+                select: {
+                    notifications: true,
+            },
+            },
+        },
+    });
+
+    if (!event) {
+        throw new ApiError(404, "Event not found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            event,
+            "Event details fetched successfully"
+        )
+    );
+});
+
 export {
     injestEvent,
+    getEvents,
+    getEventById,
 };
+
