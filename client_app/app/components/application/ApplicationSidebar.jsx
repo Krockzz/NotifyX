@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Boxes, Code2, FileText, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
+import { Activity, Boxes, Code2, FileText, Inbox, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
 import { Link } from "react-router";
 
 const items = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "keys", label: "API Keys", icon: Code2 },
   { id: "entities", label: "Entity Groups", icon: Boxes },
-  { id: "events", label: "Event Types", icon: ListChecks },
+  { id: "events", label: "Events", icon: Inbox },
+  { id: "event-types", label: "Event Types", icon: ListChecks },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "channels", label: "Channels", icon: Radio },
   { id: "activity", label: "Activity / Logs", icon: Activity },
@@ -21,6 +22,7 @@ function SectionLinks({ appId, currentSection, onNavigate, application, user }) 
           ? `/dashboard/${encodeURIComponent(appId)}`
           : `/dashboard/${encodeURIComponent(appId)}/${id}`;
         const active = currentSection === id;
+
         return (
           <Link
             key={id}
@@ -45,7 +47,9 @@ export default function ApplicationSidebar({ appId, currentSection, application,
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (open && dialogRef.current && !dialogRef.current.open) dialogRef.current.showModal();
+    if (open && dialogRef.current && !dialogRef.current.open) {
+      dialogRef.current.showModal();
+    }
   }, [open]);
 
   function closeDrawer() {

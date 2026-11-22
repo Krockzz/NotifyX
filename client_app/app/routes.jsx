@@ -9,7 +9,9 @@ export default [
     index("routes/application/overview.jsx"),
     route("keys", "routes/application/api-keys.jsx"),
     route("entities", "routes/application/entity-groups.jsx"),
-    route("events", "routes/application/event-types.jsx"),
+    route("events", "routes/application/events.jsx"),
+    route("events/:eventId", "routes/application/event-details.jsx"),
+    route("event-types", "routes/application/event-types.jsx"),
     route("templates", "routes/application/templates.jsx"),
     route("channels", "routes/application/channels.jsx"),
     route("activity", "routes/application/activity.jsx"),
@@ -18,3 +20,5 @@ export default [
   route("/dashboard/delete/:appId", "routes/delete.jsx"),
   route("/logout", "routes/logout.jsx"),
 ];
+
+

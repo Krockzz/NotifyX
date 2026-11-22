@@ -1,6 +1,7 @@
-import { data, Link, Outlet, redirect, useLoaderData, useLocation, useParams } from "react-router";
+import { data, Link, Outlet, redirect, useLoaderData, useLocation, useNavigation, useParams } from "react-router";
 import DashboardNavbar from "../../components/dashboard/DashboardNavbar.jsx";
 import ApplicationSidebar from "../../components/application/ApplicationSidebar.jsx";
+import EventDetailsSkeleton from "../../components/application/EventDetailsSkeleton.jsx";
 import { API_URI, getCookieHeaders, getUserFromValidatedCookie } from "./shared.js";
 
 export async function loader({ request, params }) {
@@ -71,8 +72,12 @@ export default function ApplicationLayout() {
   const { appId } = useParams();
   const { application, applicationError, user } = useLoaderData();
   const location = useLocation();
+  const navigation = useNavigation();
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const currentSection = pathSegments[2] || "overview";
+  const eventDetailsPath = `/dashboard/${encodeURIComponent(appId)}/events/`;
+  const isOpeningEventDetails = navigation.state === "loading"
+    && navigation.location?.pathname.startsWith(eventDetailsPath);
 
   return (
     <div className="workspace-dashboard min-h-screen">
@@ -88,10 +93,15 @@ export default function ApplicationLayout() {
             user={user}
           />
           <div className="min-w-0 application-detail-panel-enter">
-            <Outlet context={{ appId, application, user }} />
+            {isOpeningEventDetails
+              ? <EventDetailsSkeleton />
+              : <Outlet context={{ appId, application, user }} />
+            }
           </div>
         </main>
       )}
     </div>
   );
 }
+
+

@@ -56,7 +56,7 @@ export function ApplicationStats() {
 
 const sections = [
   { to: "keys", label: "API keys", caption: "Credentials for this application", icon: Code2 },
-  { to: "events", label: "Event types", caption: "Named events your app can send", icon: ListChecks },
+  { to: "event-types", label: "Event types", caption: "Named events your app can send", icon: ListChecks },
   { to: "channels", label: "Channels", caption: "Delivery destinations and routing", icon: Radio },
   { to: "activity", label: "Activity", caption: "Recent event and delivery history", icon: BellRing },
 ];
@@ -683,7 +683,7 @@ export function EventTypesPanel({
   const isDeactivating = deactivationFetcher.state !== "idle";
   const isLoading = navigation.state === "loading" || revalidator.state === "loading";
   const applicationUrl = `/dashboard/${encodeURIComponent(appId)}`;
-  const actionUrl = `${applicationUrl}/events`;
+  const actionUrl = `${applicationUrl}/event-types`;
   const detailUrl = `${actionUrl}?eventTypeId=`;
   const entityGroupsUrl = `${applicationUrl}/entities`;
   const detailView = new URLSearchParams(location.search).has("eventTypeId");
@@ -1311,3 +1311,4 @@ export function ActivityPanel() {
 export function SettingsPanel() {
   return <SectionPanel icon={Settings2} eyebrow="Workspace" title="Settings" description="Review application-level preferences and configuration." />;
 }
+
