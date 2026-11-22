@@ -10,6 +10,7 @@ import router6 from "./routers/Event.routers.js"
 import router7 from  "./routers/apiKey.router.js"
 import router8 from "./routers/EntityGrp.router.js"
 import router9 from "../src/DLQ/DlqReplay.routes.js"
+import router10 from "./routers/Notification.router.js"
 
 const app = express() 
 
@@ -38,5 +39,6 @@ app.use("/api/v1/Events" , router6)
 app.use("/api/v1/apiKey" , router7)
 app.use("/api/v1/Entity", router8)
 app.use("/api/v1/DLQ" , router9 )
+app.use("/api/v1/notification" , router10)
 
 export {app}

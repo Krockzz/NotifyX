@@ -2,7 +2,6 @@ import prisma from "../DB/index.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import {asyncHandler} from "../utils/asyncHandler.js"
-import jwt from "jsonwebtoken"
 import { GenerateAccessToken, hashPassword } from "../utils/BasicFuntions.js";
 import { GenerateRefreshToken } from "../utils/BasicFuntions.js";
 import { isPasswordCorrect } from "../utils/BasicFuntions.js";
