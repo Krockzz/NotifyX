@@ -76,8 +76,11 @@ export default function ApplicationLayout() {
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const currentSection = pathSegments[2] || "overview";
   const eventDetailsPath = `/dashboard/${encodeURIComponent(appId)}/events/`;
+  const notificationDetailsPath = `/dashboard/${encodeURIComponent(appId)}/notifications/`;
   const isOpeningEventDetails = navigation.state === "loading"
     && navigation.location?.pathname.startsWith(eventDetailsPath);
+  const isOpeningNotificationDetails = navigation.state === "loading"
+    && navigation.location?.pathname.startsWith(notificationDetailsPath);
 
   return (
     <div className="workspace-dashboard min-h-screen">
@@ -93,7 +96,7 @@ export default function ApplicationLayout() {
             user={user}
           />
           <div className="min-w-0 application-detail-panel-enter">
-            {isOpeningEventDetails
+            {isOpeningEventDetails || isOpeningNotificationDetails
               ? <EventDetailsSkeleton />
               : <Outlet context={{ appId, application, user }} />
             }

@@ -203,7 +203,7 @@ function PayloadPanel({ payload }) {
   );
 }
 
-function NotificationCard({ notification, isWide }) {
+function NotificationCard({ appId, notification, isWide }) {
   const channelType = typeof notification.channelType === "string" ? notification.channelType : "UNKNOWN";
   const ChannelIcon = channelIcons[channelType.toUpperCase()] || Radio;
   const status = typeof notification.status === "string" ? notification.status : "Unknown";
@@ -256,6 +256,15 @@ function NotificationCard({ notification, isWide }) {
           <dd className="mt-1.5 text-xs text-slate-200">{formatDateTime(notification.updated_at)}</dd>
         </div>
       </dl>
+
+      <div className="mt-4 border-t border-border/80 pt-3.5">
+        <Link
+          to={`/dashboard/${encodeURIComponent(appId)}/notifications/${encodeURIComponent(notification.id)}`}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-slate-300 transition-colors hover:border-[#A78BFA]/30 hover:bg-surface-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#A78BFA] motion-reduce:transition-none"
+        >
+          View Details <ChevronRight size={14} aria-hidden="true" />
+        </Link>
+      </div>
     </article>
   );
 }
@@ -430,6 +439,7 @@ export default function EventDetailsPanel({ appId, application, event, error, no
             {notifications.map((notification) => (
               <NotificationCard
                 key={notification.id}
+                appId={appId}
                 notification={notification}
                 isWide={notifications.length === 1}
               />
