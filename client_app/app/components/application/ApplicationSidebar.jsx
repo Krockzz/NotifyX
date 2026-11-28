@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Bell, Boxes, Code2, FileText, Inbox, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
+import { Activity, Archive, Bell, Boxes, Code2, FileText, Inbox, LayoutDashboard, ListChecks, Menu, Radio, Settings2, X } from "lucide-react";
 import { Link } from "react-router";
 
 const items = [
@@ -8,6 +8,7 @@ const items = [
   { id: "entities", label: "Entity Groups", icon: Boxes },
   { id: "events", label: "Events", icon: Inbox },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "dlq", label: "Dead Letter Queue", icon: Archive },
   { id: "event-types", label: "Event Types", icon: ListChecks },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "channels", label: "Channels", icon: Radio },

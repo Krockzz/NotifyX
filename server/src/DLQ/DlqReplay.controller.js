@@ -115,6 +115,64 @@ const getDeadLettersController = async (req, res) => {
 
 
 
+const getDashboardDeadLettersController = async (req, res) => {
+    try {
+        const { appId } = req.params;
+
+        if (!appId) {
+            return res.status(400).json({ success: false, message: "Application ID is required" });
+        }
+
+        const application = await prisma.application.findFirst({
+            where: { id: appId, userId: req.user.id },
+            select: { id: true }
+        });
+
+        if (!application) {
+            return res.status(404).json({ success: false, message: "Application not found" });
+        }
+
+        const page = Number(req.query.page ?? 1);
+        const limit = Number(req.query.limit ?? 10);
+        const { status, channelType } = req.query;
+        const supportedStatuses = new Set(["PENDING", "REPLAYED", "RESOLVED"]);
+        const supportedChannels = new Set(["EMAIL", "SMS", "PUSH", "WEBHOOK"]);
+
+        if (!Number.isInteger(page) || !Number.isInteger(limit) || page < 1 || limit < 1 || limit > 100) {
+            return res.status(400).json({ success: false, message: "Invalid pagination parameters" });
+        }
+
+        if (status && !supportedStatuses.has(status)) {
+            return res.status(400).json({ success: false, message: "Invalid dead letter status" });
+        }
+
+        if (channelType && !supportedChannels.has(channelType)) {
+            return res.status(400).json({ success: false, message: "Invalid channel type" });
+        }
+
+        const result = await getDeadLetters({
+            appId: application.id,
+            page,
+            limit,
+            status,
+            channelType
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Dead letters retrieved successfully",
+            data: result
+        });
+    } catch (error) {
+        console.error("Dashboard DLQ Listing Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve dead letters"
+        });
+    }
+};
+
 const replayDeadLetterController = async (req, res) => {
     try {
         const { deadLetterId } = req.params;
@@ -163,6 +221,7 @@ const replayDeadLetterController = async (req, res) => {
 export { 
     replayDeadLetterController,
     getDeadLetters,
-    getDeadLettersController
+    getDeadLettersController,
+    getDashboardDeadLettersController
 
  };
