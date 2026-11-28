@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -8,6 +9,8 @@ import {
   Inbox,
   ListFilter,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useNavigation, useRevalidator } from "react-router";
 
@@ -43,12 +46,18 @@ function shortenIdentifier(value) {
   return `${value.slice(0, 9)}…${value.slice(-6)}`;
 }
 
-function CopyNotificationId({ notificationId }) {
+function isValidDateOnly(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function CopyValueButton({ value, label }) {
   const [copyState, setCopyState] = useState("idle");
 
-  async function copyId() {
+  async function copyValue() {
     try {
-      await navigator.clipboard.writeText(notificationId);
+      await navigator.clipboard.writeText(value);
       setCopyState("copied");
       window.setTimeout(() => setCopyState("idle"), 1800);
     } catch {
@@ -59,21 +68,18 @@ function CopyNotificationId({ notificationId }) {
 
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <code className="max-w-36 truncate rounded-md border border-border bg-bg-base/70 px-2 py-1 font-mono text-[11px] text-slate-300" title={notificationId}>
-        {shortenIdentifier(notificationId)}
-      </code>
       <button
         type="button"
-        onClick={() => void copyId()}
-        aria-label={`Copy notification ID ${notificationId}`}
-        title="Copy notification ID"
+        onClick={() => void copyValue()}
+        aria-label={`Copy ${label}`}
+        title={`Copy ${label}`}
         className="grid size-7 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-surface-2 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 motion-reduce:transition-none"
       >
         {copyState === "copied" ? <Check size={14} aria-hidden="true" /> : <Clipboard size={14} aria-hidden="true" />}
       </button>
       {copyState !== "idle" && (
         <span role="status" className="sr-only">
-          {copyState === "copied" ? "Notification ID copied." : "Could not copy notification ID."}
+          {copyState === "copied" ? `${label} copied.` : `Could not copy ${label}.`}
         </span>
       )}
     </div>
@@ -196,13 +202,23 @@ function NotificationsTable({ appId, notifications }) {
 
             return (
               <tr key={notificationId} className="transition-colors hover:bg-surface-2/30">
-                <td className="px-4 py-3.5"><CopyNotificationId notificationId={notificationId} /></td>
+                <td className="px-4 py-3.5">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <code className="max-w-36 truncate rounded-md border border-border bg-bg-base/70 px-2 py-1 font-mono text-[11px] text-slate-300" title={notificationId}>
+                      {shortenIdentifier(notificationId)}
+                    </code>
+                    <CopyValueButton value={notificationId} label="notification ID" />
+                  </div>
+                </td>
                 <td className="max-w-44 px-4 py-4">
                   <span className="block truncate text-sm font-medium text-slate-200" title={eventCode}>{eventCode}</span>
                 </td>
                 <td className="px-4 py-4"><ChannelBadge channelType={notification.channelType} /></td>
                 <td className="max-w-56 px-4 py-4">
-                  <span className="block truncate font-mono text-xs text-slate-300" title={recipient}>{recipient}</span>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="block min-w-0 flex-1 truncate font-mono text-xs text-slate-300" title={recipient}>{recipient}</span>
+                    {recipient !== "—" && <CopyValueButton value={recipient} label="recipient" />}
+                  </div>
                 </td>
                 <td className="px-4 py-4"><StatusBadge status={notification.status} /></td>
                 <td className="px-4 py-4 text-center">
@@ -234,39 +250,151 @@ export default function NotificationsPanel({ appId, application, notifications, 
   const navigate = useNavigate();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const [searchInput, setSearchInput] = useState(filters.search);
+  const [fromInput, setFromInput] = useState(filters.from);
+  const [toInput, setToInput] = useState(filters.to);
   const isNavigating = navigation.state !== "idle"
     && navigation.location?.pathname === location.pathname;
   const isRefreshing = revalidator.state !== "idle";
-  const isFiltered = Boolean(filters.status || filters.channelType);
+  const isFiltered = Boolean(
+    filters.status
+    || filters.channelType
+    || filters.search
+    || filters.from
+    || filters.to,
+  );
   const pageCount = Math.max(1, Number(pagination.totalPages) || 0);
   const totalNotifications = Number(pagination.totalNotifications) || 0;
   const notificationsUrl = `/dashboard/${encodeURIComponent(appId)}/notifications`;
+
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
+
+  useEffect(() => {
+    const targetLocation = navigation.location?.pathname === location.pathname
+      ? navigation.location
+      : location;
+    const searchParams = new URLSearchParams(targetLocation.search);
+    const activeSearch = (searchParams.get("search") || "").trim();
+    const nextSearch = searchInput.trim();
+
+    if (nextSearch === activeSearch) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      const currentTarget = navigation.location?.pathname === location.pathname
+        ? navigation.location
+        : location;
+      const nextParams = new URLSearchParams(currentTarget.search);
+      nextParams.set("page", "1");
+      if (nextSearch) {
+        nextParams.set("search", nextSearch);
+      } else {
+        nextParams.delete("search");
+      }
+
+      navigate(`${currentTarget.pathname}?${nextParams}`);
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname, location.search, navigation.location?.pathname, navigation.location?.search, navigate, searchInput]);
+
+  useEffect(() => {
+    setFromInput(filters.from);
+    setToInput(filters.to);
+  }, [filters.from, filters.to]);
 
   function getPageUrl({
     page = filters.page,
     pageSize = filters.pageSize,
     status = filters.status,
     channelType = filters.channelType,
+    search = filters.search,
+    from = filters.from,
+    to = filters.to,
   } = {}) {
     const searchParams = new URLSearchParams();
     searchParams.set("page", String(page));
     searchParams.set("limit", String(pageSize));
     if (status) searchParams.set("status", status);
     if (channelType) searchParams.set("channelType", channelType);
+    if (search) searchParams.set("search", search);
+    if (from) searchParams.set("from", from);
+    if (to) searchParams.set("to", to);
 
     return `${notificationsUrl}?${searchParams}`;
   }
 
+  function updateQueryParams(updates) {
+    const targetLocation = navigation.location?.pathname === location.pathname
+      ? navigation.location
+      : location;
+    const searchParams = new URLSearchParams(targetLocation.search);
+    searchParams.set("page", "1");
+    if (!searchParams.has("limit")) searchParams.set("limit", String(filters.pageSize));
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) {
+        searchParams.set(key, String(value));
+      } else {
+        searchParams.delete(key);
+      }
+    }
+
+    navigate(`${notificationsUrl}?${searchParams}`);
+  }
+
   function updateFilter(filterName, value) {
-    navigate(getPageUrl({
-      page: 1,
-      [filterName]: value,
-    }));
+    updateQueryParams({ [filterName]: value });
   }
 
   function clearFilters() {
-    navigate(getPageUrl({ page: 1, status: "", channelType: "" }));
+    setSearchInput("");
+    setFromInput("");
+    setToInput("");
+    updateQueryParams({
+      status: "",
+      channelType: "",
+      search: "",
+      from: "",
+      to: "",
+    });
   }
+
+  function clearSearch() {
+    setSearchInput("");
+    updateQueryParams({ search: "" });
+  }
+
+  function applyDateRange() {
+    if (dateRangeError) return;
+
+    updateQueryParams({
+      search: searchInput.trim(),
+      from: fromInput,
+      to: toInput,
+    });
+  }
+
+  function clearDateRange() {
+    setFromInput("");
+    setToInput("");
+    updateQueryParams({
+      search: searchInput.trim(),
+      from: "",
+      to: "",
+    });
+  }
+
+  const dateRangeError = fromInput && !isValidDateOnly(fromInput)
+    ? "Choose a valid start date."
+    : toInput && !isValidDateOnly(toInput)
+      ? "Choose a valid end date."
+      : fromInput && toInput && fromInput > toInput
+        ? "The start date must be on or before the end date."
+        : "";
+  const dateRangeChanged = fromInput !== filters.from || toInput !== filters.to;
+  const hasDateRange = Boolean(filters.from || filters.to || fromInput || toInput);
 
   return (
     <section className="min-w-0 space-y-6" aria-labelledby="notifications-page-title" aria-busy={isNavigating}>
@@ -293,21 +421,40 @@ export default function NotificationsPanel({ appId, application, notifications, 
       </header>
 
       <section className="overflow-hidden rounded-xl border border-border bg-surface-1 shadow-sm shadow-black/10" aria-label="Notification filters and results">
-        <div className="flex flex-col gap-4 border-b border-border px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-200">
-              <ListFilter size={15} className="text-slate-400" aria-hidden="true" />
-              Filter notifications
+        <div className="border-b border-border px-4 py-4 sm:px-5">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-200">
+            <ListFilter size={15} className="text-slate-400" aria-hidden="true" />
+            Filter notifications
+          </div>
+          <div className="grid gap-4">
+            <div className="grid gap-1.5">
+              <label htmlFor="notification-search" className="text-xs font-medium text-slate-400">Search</label>
+              <div className="relative max-w-2xl">
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                <input
+                  id="notification-search"
+                  type="text"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search by notification ID, recipient or event code..."
+                  className="h-10 w-full rounded-lg border border-border bg-surface-2 py-2 pl-9 pr-10 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
+                />
+                {searchInput && (
+                  <button type="button" onClick={clearSearch} aria-label="Clear search" title="Clear search" className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-slate-500 transition hover:bg-surface-1 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 motion-reduce:transition-none">
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="grid gap-1.5">
                 <label htmlFor="notification-status-filter" className="text-xs font-medium text-slate-400">Status</label>
                 <select
                   id="notification-status-filter"
                   value={filters.status}
                   onChange={(event) => updateFilter("status", event.target.value)}
-                  disabled={isNavigating}
-                  className="h-10 min-w-44 rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
+                  className="h-10 min-w-0 rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
                 >
                   <option value="">All statuses</option>
                   {["PENDING", "QUEUED", "PROCESSING", "SENT", "FAILED", "CANCELLED"].map((status) => (
@@ -321,8 +468,7 @@ export default function NotificationsPanel({ appId, application, notifications, 
                   id="notification-channel-filter"
                   value={filters.channelType}
                   onChange={(event) => updateFilter("channelType", event.target.value)}
-                  disabled={isNavigating}
-                  className="h-10 min-w-44 rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
+                  className="h-10 min-w-0 rounded-lg border border-border bg-surface-2 px-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
                 >
                   <option value="">All channels</option>
                   {["EMAIL", "SMS", "PUSH", "WEBHOOK"].map((channel) => (
@@ -330,13 +476,55 @@ export default function NotificationsPanel({ appId, application, notifications, 
                   ))}
                 </select>
               </div>
+              <div className="grid gap-1.5">
+                <label htmlFor="notification-from-date" className="text-xs font-medium text-slate-400">From date</label>
+                <div className="relative">
+                  <CalendarDays size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                  <input
+                    id="notification-from-date"
+                    type="date"
+                    value={fromInput}
+                    max={toInput || undefined}
+                    onChange={(event) => setFromInput(event.target.value)}
+                    aria-invalid={Boolean(dateRangeError)}
+                    className="h-10 w-full rounded-lg border border-border bg-surface-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-1.5">
+                <label htmlFor="notification-to-date" className="text-xs font-medium text-slate-400">To date</label>
+                <div className="relative">
+                  <CalendarDays size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                  <input
+                    id="notification-to-date"
+                    type="date"
+                    value={toInput}
+                    min={fromInput || undefined}
+                    onChange={(event) => setToInput(event.target.value)}
+                    aria-invalid={Boolean(dateRangeError)}
+                    className="h-10 w-full rounded-lg border border-border bg-surface-2 pl-9 pr-3 text-sm text-slate-200 outline-none transition focus:border-violet-300/60 focus:ring-2 focus:ring-violet-300/15 disabled:cursor-wait disabled:opacity-60"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={applyDateRange} disabled={!dateRangeChanged || Boolean(dateRangeError)} className="inline-flex min-h-9 items-center justify-center rounded-lg bg-violet-600 px-3.5 text-xs font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 motion-reduce:transition-none">
+                Apply date range
+              </button>
+              {hasDateRange && (
+                <button type="button" onClick={clearDateRange} className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-slate-400 transition hover:bg-surface-2 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 motion-reduce:transition-none">
+                  Clear dates
+                </button>
+              )}
+              {(isFiltered || searchInput || hasDateRange) && (
+                <button type="button" onClick={clearFilters} className="ml-auto inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-slate-400 transition hover:bg-surface-2 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 motion-reduce:transition-none">
+                  Clear filters
+                </button>
+              )}
+              {dateRangeError && <p className="w-full text-xs text-rose-200" role="alert">{dateRangeError}</p>}
             </div>
           </div>
-          {isFiltered && (
-            <button type="button" onClick={clearFilters} disabled={isNavigating} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg border border-border px-3 text-xs font-medium text-slate-400 transition hover:bg-surface-2 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-300 disabled:opacity-50 motion-reduce:transition-none">
-              Clear filters
-            </button>
-          )}
         </div>
 
         {isNavigating ? (

@@ -3,11 +3,37 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+function parseDateBoundary(value, parameterName, isEndDate = false) {
+  if (value === undefined) return null;
+
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new ApiError(400, `Invalid ${parameterName} date. Use YYYY-MM-DD.`);
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new ApiError(400, `Invalid ${parameterName} date. Use YYYY-MM-DD.`);
+  }
+
+  if (isEndDate) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+
+  return date;
+}
 
 const getNotifications = asyncHandler(async (req, res) => {
   const { appId } = req.params;
 
-  const { page = 1, limit = 10, status, channelType} = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    channelType,
+    search,
+    from,
+    to,
+  } = req.query;
 
   if (!appId) {
     throw new ApiError(400, "Application ID is required");
@@ -41,6 +67,18 @@ const getNotifications = asyncHandler(async (req, res) => {
   }
 
   const skip = (pageNumber - 1) * limitNumber;
+  const searchTerm = typeof search === "string" ? search.trim() : "";
+  const fromDate = parseDateBoundary(from, "from");
+  const toDateExclusive = parseDateBoundary(to, "to", true);
+
+  if (fromDate && toDateExclusive && fromDate.getTime() >= toDateExclusive.getTime()) {
+    throw new ApiError(400, "The from date must be on or before the to date");
+  }
+
+  const createdAtFilter = {
+    ...(fromDate ? { gte: fromDate } : {}),
+    ...(toDateExclusive ? { lt: toDateExclusive } : {}),
+  };
 
   const where = {
     event: {
@@ -48,6 +86,20 @@ const getNotifications = asyncHandler(async (req, res) => {
     },
     ...(status && { status }),
     ...(channelType && { channelType }),
+    ...(searchTerm && {
+      OR: [
+        { id: searchTerm },
+        { recipientTarget: { contains: searchTerm, mode: "insensitive" } },
+        {
+          event: {
+            eventType: {
+              eventCode: { contains: searchTerm, mode: "insensitive" },
+            },
+          },
+        },
+      ],
+    }),
+    ...(Object.keys(createdAtFilter).length > 0 && { created_at: createdAtFilter }),
   };
 
   const [notifications, totalNotifications] = await Promise.all([

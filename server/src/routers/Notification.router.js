@@ -13,7 +13,9 @@ router.use((error, req, res, next) => {
 
   const statusCode = error.statusCode || error.status || 500;
   const message = statusCode >= 500
-    ? "Unable to load notification details"
+    ? req.params.notificationId
+      ? "Unable to load notification details"
+      : "Unable to load notifications"
     : error.message;
 
   return res.status(statusCode).json({

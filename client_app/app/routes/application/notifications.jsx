@@ -19,7 +19,13 @@ function readPositiveInteger(value, fallback) {
   return Number.isInteger(number) && number > 0 ? number : fallback;
 }
 
-function getInitialData({ page, pageSize, status, channelType }, message = "") {
+function isValidDateOnly(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function getInitialData({ page, pageSize, status, channelType, search, from, to }, message = "") {
   return {
     notifications: [],
     pagination: {
@@ -33,6 +39,9 @@ function getInitialData({ page, pageSize, status, channelType }, message = "") {
       pageSize,
       status,
       channelType,
+      search,
+      from,
+      to,
     },
     error: message,
   };
@@ -48,7 +57,10 @@ export async function loader({ request, params }) {
   const requestedChannel = searchParams.get("channelType") || "";
   const status = NOTIFICATION_STATUSES.has(requestedStatus) ? requestedStatus : "";
   const channelType = CHANNEL_TYPES.has(requestedChannel) ? requestedChannel : "";
-  const filters = { page, pageSize, status, channelType };
+  const search = (searchParams.get("search") || "").trim();
+  const from = searchParams.get("from") || "";
+  const to = searchParams.get("to") || "";
+  const filters = { page, pageSize, status, channelType, search, from, to };
   const initialData = getInitialData(filters);
 
   if (!appId) {
@@ -59,12 +71,23 @@ export async function loader({ request, params }) {
     return data({ ...initialData, error: "The application service is not configured." });
   }
 
+  if ((from && !isValidDateOnly(from)) || (to && !isValidDateOnly(to))) {
+    return data({ ...initialData, error: "Choose valid calendar dates for the notification range." });
+  }
+
+  if (from && to && from > to) {
+    return data({ ...initialData, error: "The from date must be on or before the to date." });
+  }
+
   const apiQuery = new URLSearchParams({
     page: String(page),
     limit: String(pageSize),
   });
   if (status) apiQuery.set("status", status);
   if (channelType) apiQuery.set("channelType", channelType);
+  if (search) apiQuery.set("search", search);
+  if (from) apiQuery.set("from", from);
+  if (to) apiQuery.set("to", to);
 
   const apiUrl = `${API_URI.replace(/\/+$/, "")}/api/v1/notification/${encodeURIComponent(appId)}?${apiQuery}`;
 
