@@ -11,6 +11,7 @@ export default [
     route("entities", "routes/application/entity-groups.jsx"),
     route("events", "routes/application/events.jsx"),
     route("events/:eventId", "routes/application/event-details.jsx"),
+    route("notifications", "routes/application/notifications.jsx"),
     route("notifications/:notificationId", "routes/application/notification-details.jsx"),
     route("event-types", "routes/application/event-types.jsx"),
     route("templates", "routes/application/templates.jsx"),

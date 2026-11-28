@@ -15,6 +15,7 @@ export async function fetchJson(url, request) {
     method: "GET",
     headers: getCookieHeaders(request),
     credentials: "include",
+    signal: request.signal,
   });
   const payload = await response.json().catch(() => null);
 

@@ -3,6 +3,115 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+
+const getNotifications = asyncHandler(async (req, res) => {
+  const { appId } = req.params;
+
+  const { page = 1, limit = 10, status, channelType} = req.query;
+
+  if (!appId) {
+    throw new ApiError(400, "Application ID is required");
+  }
+
+  const application = await prisma.application.findFirst({
+    where: {
+      id: appId,
+      userId: req.user.id,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!application) {
+    throw new ApiError(404, "Application not found");
+  }
+
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+
+  if (
+    !Number.isInteger(pageNumber) ||
+    !Number.isInteger(limitNumber) ||
+    pageNumber < 1 ||
+    limitNumber < 1 ||
+    limitNumber > 100
+  ) {
+    throw new ApiError(400, "Invalid pagination parameters");
+  }
+
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const where = {
+    event: {
+      appId: application.id,
+    },
+    ...(status && { status }),
+    ...(channelType && { channelType }),
+  };
+
+  const [notifications, totalNotifications] = await Promise.all([
+    prisma.notification.findMany({
+      where,
+      skip,
+      take: limitNumber,
+      orderBy: {
+        created_at: "desc",
+      },
+      select: {
+        id: true,
+        channelType: true,
+        recipientTarget: true,
+        subject: true,
+        status: true,
+        scheduledAt: true,
+        created_at: true,
+        updated_at: true,
+
+        event: {
+          select: {
+            id: true,
+            routingKey: true,
+            created_at: true,
+            eventType: {
+              select: {
+                eventCode: true,
+              },
+            },
+          },
+        },
+
+        _count: {
+          select: {
+            deliveryAttempts: true,
+          },
+        },
+      },
+    }),
+
+    prisma.notification.count({
+      where,
+    }),
+  ]);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        notifications,
+        pagination: {
+          currentPage: pageNumber,
+          limit: limitNumber,
+          totalNotifications,
+          totalPages: Math.ceil(totalNotifications / limitNumber),
+        },
+      },
+      "Notifications fetched successfully",
+    ),
+  );
+});
+
+
 const getNotificationById = asyncHandler(async (req, res) => {
   const { appId, notificationId } = req.params;
 
@@ -82,4 +191,7 @@ const getNotificationById = asyncHandler(async (req, res) => {
   );
 });
 
-export { getNotificationById };
+export {
+   getNotificationById,
+  getNotifications
+};
