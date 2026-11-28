@@ -38,17 +38,14 @@ export async function loader({ request, params }) {
     }
 
     if (!response.ok || payload?.success === false) {
-      return data(getEmptyResult(payload?.message || "Could not load this notification."));
+      const statusMessage = `Notification request failed with HTTP ${response.status}.`;
+      return data(getEmptyResult(payload?.message || statusMessage));
     }
 
-    const notification = payload?.data ?? payload?.notification ?? payload;
+    const notification = payload?.data;
 
     if (!notification || typeof notification !== "object" || Array.isArray(notification)) {
-      return data({
-        notification: null,
-        notificationError: "The service returned invalid notification details.",
-        notificationNotFound: true,
-      });
+      return data(getEmptyResult("The service returned an invalid notification response."));
     }
 
     return data({
@@ -56,8 +53,9 @@ export async function loader({ request, params }) {
       notificationError: "",
       notificationNotFound: false,
     });
-  } catch {
-    return data(getEmptyResult("Unable to connect to the application service. Try again later."));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown network error";
+    return data(getEmptyResult(`Unable to load notification details: ${message}`));
   }
 }
 
